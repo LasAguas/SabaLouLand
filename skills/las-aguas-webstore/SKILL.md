@@ -105,9 +105,16 @@ The optional `email` field in the checkout body only pre-fills Stripe's form.
     "name": "El Fuego Tee",
     "description": "Heavyweight tee, acid yellow print.",
     "price_cents": 2500,           // €25.00 — display only, server re-prices at checkout
+    // present when every variant shares one price; when they don't, use each
+    // variant's own price_cents below instead — see price_min/max_cents.
+    "price_min_cents": 2500,       // lowest variant price on this product
+    "price_max_cents": 3000,       // highest — different from min means show it
     "shipping_cents": 490,         // per unit, added at checkout
     "images": ["https://…supabase…/store/….jpg"],
-    "variants": [{ "name": "S" }, { "name": "M" }, { "name": "L" }],
+    // each variant can carry its OWN price_cents (e.g. a signed copy costs
+    // more) — read v.price_cents, don't assume the product's own price_cents
+    // applies to every option
+    "variants": [{ "name": "S", "price_cents": 2500 }, { "name": "M", "price_cents": 2500 }, { "name": "L", "price_cents": 3000 }],
     "has_variants": true,
     "sort_order": 0,
     "product_type": "physical"

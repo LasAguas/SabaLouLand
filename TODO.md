@@ -72,7 +72,37 @@ asks for. Register three ids in the dashboard's `lib/consentStatements.js` —
 `lib/content.js` → `newsletter.consent` — and set `fields.consent_id` on the
 form.
 
-### 3. `/impressum` and a privacy page
+### 3. Publish the store, and get this domain allowlisted
+
+`/store` is coded and verified, but the dashboard says the store isn't there:
+
+```bash
+curl "https://lasaguasproductions.com/api/store-public/resolve?slug=saba-lou-store"
+# -> 404 {"error":"not_found"}
+```
+
+Per the skill, a `404` is what an **unpublished** store returns, so the slug is
+probably right and the store just needs finishing in **Admin -> Webstore**:
+add the products (name, price, shipping per unit, photos, sizes with
+per-variant stock), set the store **title** (it goes on the receipt email), and
+hit **publish**. The moment that returns `200`, `/store` fills itself in — no
+code change. Until then the page shows "the store isn't open yet".
+
+If the slug turns out to be something other than `saba-lou-store`, it's one
+line: `NEXT_PUBLIC_STORE_SLUG` in `.env.local` (and in Vercel).
+
+⚠️ **Second, and the skill calls this the #1 silent failure:** this site's
+hostname has to be in `STORE_RETURN_URL_ALLOWLIST` on the **dashboard's** Vercel
+project (it falls back to `EVENT_RETURN_URL_ALLOWLIST`, so a domain already
+cleared for ticketing works as-is). Without it buyers still get charged, but
+Stripe returns them to lasaguasproductions.com instead of here, so they never
+see the receipt. Ask the Las Aguas team before this goes live.
+
+Once both are done, run the skill's end-to-end check: buy the cheapest item with
+a real card (the platform runs live Stripe keys), confirm the receipt panel,
+the receipt email and the order in Admin -> Webstore -> Orders, then refund it.
+
+### 4. `/impressum` and a privacy page
 
 Now linked from **three** places: the footer, the newsletter's data notice, and
 the cookie banner. All three 404 today, and the newsletter notice is deliberately
@@ -87,7 +117,7 @@ what's collected; I'd put both on `/impressum` unless you'd rather split them.
 
 ## 🟡 Content I'm waiting on
 
-### 4. The handwritten font's missing glyphs
+### 5. The handwritten font's missing glyphs
 
 `SabaLouHandwritten2.otf` has 98 glyphs. Missing:
 
@@ -104,19 +134,31 @@ Still worth confirming: the face has **é ä ö ü ß ò ù** but no other accen
 deliberate? And lowercase **g** is drawn like a capital G, so "english" renders
 "enGlish" and "gallery" "Gallery". Intentional?
 
-### 5. Logo and favicon
+### 6. ~~Logo and favicon~~ — DONE
 
-`public/images/logo-placeholder.svg` is a stand-in I drew. The light/dark switch
-is now two chips with a sun and a moon glyph — those are the natural slots for
-your light and dark logos when they arrive. A favicon is also still pointing at
-the placeholder.
+Wired up in `public/images/icons/`: `logo.png` (favicon + brand mark), and
+`mode-light.png` / `mode-dark.png` in the theme switch's two chips. The hero
+crest's placeholder moon is now `logo.png` too, recoloured cream
+(`logo-on-hero.png`) so it reads on the painting — same reasoning the old
+placeholder SVG used.
 
-### 6. Contact address
+**Heads up:** the three files you dropped in (`Logo.png`, `Light Mode.png`,
+`Dark Mode.png`) had flat white backgrounds baked in, not real transparency —
+confirmed by checking the PNG header (color type 2, no alpha channel), despite
+how they may have looked in a preview. Since all three are clean black ink on
+white, I matted them into real alpha (white → transparent, ink → opaque) and
+replaced the originals with the processed files. Recoloring for the hero was a
+judgement call, not just the transparency fix — worth a look in both themes to
+confirm it reads the way you want. If you'd rather supply true alpha-channel
+exports later (e.g. straight out of Procreate/Photoshop with the background
+deleted, not flattened), drop them in over the same filenames.
+
+### 7. Contact address
 
 `+contact+` is a `mailto:` to **hello@sabalouland.com**, which I invented.
 `CONTACT_EMAIL` in `lib/content.js`.
 
-### 7. Social links
+### 8. Social links
 
 Confirm or correct in `lib/content.js` (`SOCIALS`). **Spotify still has no artist
 id** — the link goes nowhere useful, and it's now tagged as a `streaming` click
@@ -130,7 +172,7 @@ in the analytics, so it'll show up in reports as soon as tracking is live.
 | Bandcamp | `sabalou.bandcamp.com` |
 | TikTok | `tiktok.com/@sabalouland` |
 
-### 8. Read the German and Spanish
+### 9. Read the German and Spanish
 
 I wrote both. Particularly:
 - **The "hello traveller" greeting** — you gave me English only. I kept the
@@ -147,7 +189,7 @@ All in `lib/content.js`.
 
 ## 🟢 Decisions for you
 
-### 9. The greeting's legibility on desktop
+### 10. The greeting's legibility on desktop
 
 You asked me to remove the box behind "hello traveller", and I did. The text is
 dark brown (`#412b17`), and where the lower lines cross the tree trunk and the
@@ -159,20 +201,33 @@ Options, if it bothers you: shorten the greeting on the home page; make the type
 cream instead of brown on desktop (as it already is on mobile); or accept it.
 Say which and I'll do it.
 
-### 10. The remaining pages
+### 11. The remaining pages
 
 `/about` exists but is **unstyled** — it's just parking the earlier
-third-person bio so it isn't lost. `/store`, `/gallery` and `/book` still 404.
-We said we'd design these together.
+third-person bio so it isn't lost. `/book` still 404s. We said we'd design
+these together.
 
-### 11. The moon
+**`/store` is built** — header, the shelf menu and 3x2 grid, basket, Stripe
+handoff and receipt, footer, all three languages. It is wired to the real
+dashboard API per `skills/las-aguas-webstore`. Two things stand between it and
+working, both on the dashboard side, not in this repo — see blocker 3 above.
+
+**`/gallery` is built**, from your sketch — the store's header minus the
+welcome banner, the fotos/videos/art work tabs, and a sharp-cornered grid
+(your "sharp corners" note, as opposed to the store's rounded polaroid
+cards). "fotos" is read straight off `public/images/gallery` at build time —
+drop a file in and it appears, nothing to wire. "videos" and "art work" have
+no content yet, so both show an empty state; say the word once there's
+something to put in them.
+
+### 12. The moon
 
 Bottom-left of the page, and still a placeholder — but it already draws *any*
 phase handed to it, the terminator geometry is real. Wiring it to the actual
 lunar cycle means replacing `MOON_PHASE = 0.62` in `pages/index.js` with a
 calculation. Say the word.
 
-### 12. Deployment
+### 13. Deployment
 
 Vercel autodetects this as a Next.js project. Set the four `NEXT_PUBLIC_*` vars
 from `.env.local.example` in the Vercel project. **What domain should it be on?**

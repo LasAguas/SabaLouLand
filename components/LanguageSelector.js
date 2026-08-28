@@ -5,7 +5,7 @@ export default function LanguageSelector() {
   const { lang, setLang, languages, t } = useLanguage();
 
   return (
-    <nav className="panel langs" style={{ "--tilt": "-1.4deg" }} aria-label={t.languageLabel}>
+    <nav className="panel langs" aria-label={t.languageLabel}>
       {languages.map((l) => (
         <button
           key={l.code}
@@ -22,12 +22,9 @@ export default function LanguageSelector() {
 
       <style jsx>{`
         .langs { width: 4.2rem; flex: none; }
-        .code { text-transform: uppercase; letter-spacing: 0.06em; }
-        /* the chips are rectangles, but the stack still leans a little */
-        .langs :global(.chip):nth-child(2) { transform: rotate(0.8deg); }
-        .langs :global(.chip):nth-child(3) { transform: rotate(-0.6deg); }
+        .code { text-transform: lowercase; letter-spacing: 0.06em; }
 
-        /* stays a vertical stack at every width */
+        /* stays a vertical stack at every width, square to the page */
 
         /* Pinned to a fixed px width on phones rather than the desktop rem
            value: rem is root-font-relative, and a phone's own "larger text"

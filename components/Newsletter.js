@@ -131,8 +131,8 @@ export default function Newsletter() {
   }
 
   return (
-    <section className="news tilt" style={{ "--tilt": "-0.8deg" }} aria-labelledby="news-h">
-      <h2 id="news-h" className="tilt" style={{ "--tilt": "1.4deg" }}>{n.heading}</h2>
+    <section className="news" aria-labelledby="news-h">
+      <h2 id="news-h">{n.heading}</h2>
       <p className="blurb">{n.blurb}</p>
 
       {settled ? (
@@ -271,12 +271,11 @@ export default function Newsletter() {
           border: var(--rule) solid var(--ink-faint);
           border-radius: var(--wobble);
           padding: 0.5rem 1.15rem;
-          transform: rotate(0.9deg);
           transition: transform 220ms cubic-bezier(0.34, 1.4, 0.64, 1),
             border-color 180ms ease, color 180ms ease;
         }
         button[type="submit"]:hover:enabled {
-          transform: rotate(-1.6deg) translateY(-2px);
+          transform: translateY(-2px);
           border-color: var(--accent-2);
           color: var(--accent-2);
         }

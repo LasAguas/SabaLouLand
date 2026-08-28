@@ -5,7 +5,7 @@ export default function Document() {
   return (
     <Html lang="en" data-theme="dark">
       <Head>
-        <link rel="icon" href="/images/logo-placeholder.svg" type="image/svg+xml" />
+        <link rel="icon" href="/images/icons/logo.png" type="image/png" />
         <meta name="theme-color" content="#07090c" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#efe7d8" media="(prefers-color-scheme: light)" />
       </Head>

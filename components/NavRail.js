@@ -1,21 +1,22 @@
 // (5) vertical nav rail. Pages are still being built — see TODO.md.
+import { useRouter } from "next/router";
 import Link from "next/link";
 import { NAV } from "../lib/content";
 import { useLanguage } from "../lib/useLanguage";
 
-const LEAN = ["0deg", "0.9deg", "-0.7deg", "1.1deg"];
-
 export default function NavRail() {
   const { t } = useLanguage();
+  const { pathname } = useRouter();
+  // no reason to link home from the page you're already on
+  const items = pathname === "/" ? NAV : [{ href: "/", key: "home" }, ...NAV];
 
   return (
-    <nav className="panel rail" style={{ "--tilt": "1.2deg" }} aria-label={t.nav.label}>
-      {NAV.map((item, i) => (
+    <nav className="panel rail" aria-label={t.nav.label}>
+      {items.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           className="chip"
-          style={{ transform: `rotate(${LEAN[i]})` }}
           data-track-type={item.key === "store" ? "merch" : "other"}
           data-track-label={item.key}
           data-track-category={item.key === "store" ? "merch" : "nav"}

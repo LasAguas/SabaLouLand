@@ -19,7 +19,7 @@ const springfield = localFont({
 // Everything else. HEADS UP: this face currently has only 98 glyphs — no
 // "d"/"D", no "4", no hyphen, apostrophe, parentheses or Spanish accents.
 // Missing characters fall through to --font-hand-fallback below, glyph by
-// glyph, which is visible. See TODO.md, item 1.
+// glyph, which is visible. See TODO.md, item 5.
 const sabalou = localFont({
   src: "../fonts/SabaLouHandwritten2.otf",
   variable: "--font-sabalou",

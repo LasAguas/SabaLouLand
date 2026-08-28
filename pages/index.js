@@ -8,45 +8,59 @@
 // Still separate, because they carry behaviour rather than content:
 //   LanguageSelector / ThemeToggle / NavRail  the chip panels
 //   Newsletter                                the signup form + its API calls
+//   SiteFooter                                the footer, shared with /store
 //   Moon                                      phase geometry
-//   SocialIcon                                the icon paths
+//   SocialIcon                                the icon paths (used by SiteFooter)
 // ---------------------------------------------------------------------------
 import Head from "next/head";
 import Image from "next/image";
-import Link from "next/link";
 import LanguageSelector from "../components/LanguageSelector";
 import Moon from "../components/Moon";
 import NavRail from "../components/NavRail";
 import Newsletter from "../components/Newsletter";
-import SocialIcon from "../components/SocialIcons";
+import SiteFooter from "../components/SiteFooter";
 import ThemeToggle from "../components/ThemeToggle";
-import { CONTACT_EMAIL, SOCIALS } from "../lib/content";
 import { useLanguage } from "../lib/useLanguage";
+import { useTheme } from "../lib/useTheme";
 
 // (10) fixed for now. Feed this from a real lunar-phase calculation later —
 // Moon.js already draws whatever phase it's handed.
 const MOON_PHASE = 0.62;
 
+// (0) the same painting, two edits of its own fade — each baked to hand off
+// invisibly to that theme's --hero-foot. See the note by .hero below.
+const HERO = {
+  dark: "/images/hero-dark.jpg",
+  light: "/images/hero-light.jpg",
+};
+
 // The big decorative corner moon (bottom-right). Any phase but new/full, per
 // the brief — waxing gibbous picked as a clear, recognisably-lit texture.
-const CORNER_MOON = "/images/moons/waxing-gibbous.png";
+const CORNER_MOON = "/images/moons/waning-gibbous.png";
 
 // (2) the title, set letter by letter so it sits like it was drawn by hand.
 const TITLE = "SABA LOU LAND";
+// per-letter wobble — the hand-drawn jitter
 const LEAN = [-4, 2, -1.5, 3.5, 0, -2.5, 4, -3, 1, 0, 2.5, -1.5, 3];
 const RISE = [2, -3, 1, 4, 0, -1, 3, -2, 2, 0, -3, 1.5, -2];
+// a prominent arch across the whole word, added on top of the wobble above:
+// the centre letters ride highest, the outer letters dip and tilt outward, as
+// if the word were set on the rim of a circle 60vh across. Rotation and drop
+// both come from the same angle theta, so each letter's own tilt matches the
+// circle's tangent at that point instead of just approximating it.
+const ARC_RADIUS_VH = 30; // 60vh diameter
+const ARC_THETA_MAX_DEG = 32; // how far around the rim the outer letters sit
+const ARC_CENTER = (TITLE.length - 1) / 2;
 
-// (9) each gratitude drifts a little, so the block never squares up.
+// (9) each gratitude is indented a little differently, so the block never
+// squares up. The lines themselves stay upright — only the indent varies.
 const THANKS_DRIFT = [0, 1.4, 0.4, 2.1, 0.9, 2.6, 1.1, 2.2, 3.4, 1.6];
-const THANKS_LEAN = [-1.6, 0.8, -0.5, 1.2, -1.1, 0.6, -0.9, 1.4, -0.4, 1];
-
-// (7) how far each social icon kicks when you hover it.
-const SOCIAL_TILT = [-6, 3, -2, 5, -4];
 
 export default function Home() {
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const [thanksOpener, ...thanks] = t.gratitudes;
-  const year = new Date().getFullYear();
+  const heroSrc = HERO[theme] ?? HERO.dark;
 
   return (
     <>
@@ -58,21 +72,22 @@ export default function Home() {
         />
         <meta property="og:title" content="Saba Lou Land" />
         <meta property="og:type" content="website" />
-        <meta property="og:image" content="/images/hero-new.jpg" />
+        <meta property="og:image" content={HERO.dark} />
       </Head>
 
       <main>
         {/* ============ (0) hero ==================================== */}
         <section className="hero grain">
           <div className="plate">
-            <Image src="/images/hero-new.jpg" alt="" fill priority sizes="100vw" quality={82} />
+            <Image src={heroSrc} alt="" fill priority sizes="100vw" quality={82} />
           </div>
 
-          {/* The image carries its own fade to black, aligned to the roofline,
-              so in portrait there is nothing to draw on top of it. On wider
-              viewports `cover` crops the tail of that fade away, so .fade seats
-              the last 10% on --hero-foot — #170200, the exact black the image
-              fades to, so the two meet invisibly. */}
+          {/* Each of the two images carries its own fade, baked in, aligned to
+              the roofline, so in portrait there is nothing to draw on top of
+              it — dark fades to #170200, light to #efe8d8, matching that
+              theme's --hero-foot exactly so the two meet invisibly. On wider
+              viewports `cover` crops the tail of that fade away, so .fade
+              seats the last 10% on --hero-foot instead. */}
           <div className="fade" aria-hidden="true" />
           <div className="crown" aria-hidden="true" />
 
@@ -85,24 +100,34 @@ export default function Home() {
               {/* ---- (2) title + logo ---- */}
               <header className="top-c crest">
                 <h1 className="title" aria-label="Saba Lou Land">
-                  {TITLE.split("").map((ch, i) => (
-                    <span
-                      key={i}
-                      aria-hidden="true"
-                      className={ch === " " ? "gap" : "ch"}
-                      style={{ "--lean": `${LEAN[i] || 0}deg`, "--rise": `${RISE[i] || 0}px` }}
-                    >
-                      {ch === " " ? " " : ch}
-                    </span>
-                  ))}
+                  {TITLE.split("").map((ch, i) => {
+                    const t = (i - ARC_CENTER) / ARC_CENTER; // -1 (left edge) .. 1 (right edge)
+                    const thetaDeg = t * ARC_THETA_MAX_DEG;
+                    const thetaRad = (thetaDeg * Math.PI) / 180;
+                    const lean = (LEAN[i] || 0) + thetaDeg;
+                    const arcRiseVh = ARC_RADIUS_VH * (1 - Math.cos(thetaRad));
+                    const rise = `calc(${RISE[i] || 0}px + ${arcRiseVh.toFixed(3)}vh)`;
+                    return (
+                      <span
+                        key={i}
+                        aria-hidden="true"
+                        className={ch === " " ? "gap" : "ch"}
+                        style={{ "--lean": `${lean}deg`, "--rise": rise }}
+                      >
+                        {ch === " " ? " " : ch}
+                      </span>
+                    );
+                  })}
                 </h1>
-                {/* TODO: real logo — see TODO.md */}
+                {/* The real mark, cream so it reads on the painting in both
+                    themes — same reasoning as the title's on-hero ink, just
+                    a fixed image instead of a theme-swapping CSS var. */}
                 <span className="logo tilt" style={{ "--tilt": "-2.5deg" }}>
                   <Image
-                    src="/images/logo-placeholder.svg"
-                    alt="Saba Lou Land logo"
-                    width={92}
-                    height={92}
+                    src="/images/icons/logo-on-hero.png"
+                    alt=""
+                    width={270}
+                    height={263}
                     priority
                   />
                 </span>
@@ -117,9 +142,7 @@ export default function Home() {
               {/* ---- (4) the greeting ---- */}
               <section className="mid-l bio" aria-label="welcome">
                 {t.bio.map((para, i) => (
-                  <p key={i} className="tilt" style={{ "--tilt": i === 0 ? "-0.7deg" : "0.6deg" }}>
-                    {para}
-                  </p>
+                  <p key={i}>{para}</p>
                 ))}
               </section>
 
@@ -139,16 +162,12 @@ export default function Home() {
 
             {/* ---- (9) gratitudes ---- */}
             <section className="deep-r thanks" aria-label={thanksOpener}>
-              <p className="opener tilt" style={{ "--tilt": "-2deg" }}>{thanksOpener}</p>
+              <p className="opener">{thanksOpener}</p>
               <ul>
                 {thanks.map((line, i) => (
                   <li
                     key={line + i}
-                    className="tilt"
-                    style={{
-                      "--tilt": `${THANKS_LEAN[i % THANKS_LEAN.length]}deg`,
-                      "--drift": `${THANKS_DRIFT[i % THANKS_DRIFT.length]}rem`,
-                    }}
+                    style={{ "--drift": `${THANKS_DRIFT[i % THANKS_DRIFT.length]}rem` }}
                   >
                     {line}
                   </li>
@@ -158,63 +177,7 @@ export default function Home() {
           </div>
 
           {/* ---- (7) footer: socials, contact, impressum ---- */}
-          <footer className="foot-in foot">
-            <div className="socials">
-              <span className="lead tilt" style={{ "--tilt": "-1.5deg" }}>{t.footer.findMe}</span>
-              <ul>
-                {SOCIALS.map((s, i) => (
-                  <li key={s.key} style={{ "--tilt": `${SOCIAL_TILT[i % SOCIAL_TILT.length]}deg` }}>
-                    <a
-                      href={s.href}
-                      target="_blank"
-                      rel="me noopener noreferrer"
-                      className="tilt"
-                      title={s.key}
-                      data-track-type={s.track.type}
-                      data-track-label={s.key}
-                      data-track-platform={s.track.platform}
-                      data-track-category={s.track.type}
-                    >
-                      <SocialIcon name={s.key} />
-                      <span className="sr-only">{s.key}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-              <span className="handle tilt" style={{ "--tilt": "1.8deg" }}>@sabalouland</span>
-
-              {/* the plus signs are part of the mark, not decoration */}
-              <a
-                className="contact tilt"
-                style={{ "--tilt": "-1.6deg" }}
-                href={`mailto:${CONTACT_EMAIL}`}
-                data-track-type="other"
-                data-track-label="contact"
-                data-track-category="contact"
-              >
-                <span aria-hidden="true">+</span>
-                {t.contact}
-                <span aria-hidden="true">+</span>
-              </a>
-            </div>
-
-            <div className="fine">
-              {/* TODO: /impressum doesn't exist yet — see TODO.md */}
-              <Link
-                href="/impressum"
-                className="impressum"
-                data-track-type="other"
-                data-track-label="impressum"
-                data-track-category="legal"
-              >
-                {t.footer.impressum}
-              </Link>
-              <span className="dot" aria-hidden="true">·</span>
-              <span>© {year} Saba Lou</span>
-              <span className="dot last" aria-hidden="true">·</span>
-              <span className="rights">{t.footer.rights}</span>
-            </div>
-          </footer>
+          <SiteFooter />
 
           {/* (10) the moon keeps watch from the bottom-left corner */}
           <div className="moon-slot">
@@ -227,7 +190,7 @@ export default function Home() {
               lunar-phase calculation feeds MOON_PHASE above, this can pick its
               file from the same value instead of being hardcoded. */}
           <div className="corner-moon" aria-hidden="true">
-            <Image src={CORNER_MOON} alt="" fill sizes="30vw" quality={82} />
+            <Image src={CORNER_MOON} alt="" fill sizes="52vw" quality={82} />
           </div>
         </section>
       </main>
@@ -332,6 +295,7 @@ export default function Home() {
           display: block;
           width: clamp(58px, 7vw, 92px);
           height: auto;
+          filter: drop-shadow(var(--on-hero-shadow));
         }
 
         /* ---- middle band ---- */
@@ -382,6 +346,32 @@ export default function Home() {
         .bio p:last-of-type { margin-bottom: 0; }
         .bio p:nth-of-type(2) { margin-left: 0.6rem; }
 
+        /* The second paragraph's right edge tapers inward as it descends: an
+           invisible right-floated triangle the text wraps around, so each line
+           ends a little shorter than the one above while the left edge stays
+           put. shape-outside needs a real float to hang off, hence ::before
+           rather than a clip — a clip would cut the glyphs instead of moving
+           them. Only above 1259px: narrower than that the block leaves the sky
+           entirely and sits under the blue, where a taper has nothing to dodge. */
+        @media (min-width: 1260px) {
+          .bio p:nth-of-type(2)::before {
+            content: "";
+            float: right;
+            /* the deepest the taper eats into a line, reached at the float's
+               own foot */
+            width: 38%;
+            /* Tall enough to outlast the longest translation (German runs 8
+               lines / ~257px here; English 7, Spanish 6) — a float that ends
+               early stops steering, and the leftover lines snap back out to
+               full width. Any excess is empty space inside .bio, which is a
+               grid item and so contains its own floats; it sits in open hero
+               sky with nothing beneath it to push. */
+            height: 13.2em;
+            shape-outside: polygon(100% 0, 100% 100%, 0 100%);
+            shape-margin: 0.45em;
+          }
+        }
+
         /* ============ deep ======================================== */
         .deep {
           position: relative;
@@ -394,10 +384,14 @@ export default function Home() {
           /* the bottom padding is the moon's band — see .moon-slot */
           padding: 0 clamp(1.1rem, 4vw, 3.2rem) clamp(7.5rem, 10vw, 9.5rem);
           --dusk: clamp(90px, 10vw, 140px);
+          /* how far the gratitudes hang below the top of .deep-in. Shared with
+             .corner-moon so the moon stays level with them — see below. */
+          --thanks-lead: clamp(1rem, 3vw, 2.5rem);
         }
         /* Dusk band: carries --hero-foot down into the page colour. Invisible
-           in dark mode (both ends are the same near-black); in light mode it
-           reads as the painting's night giving way to paper. */
+           in both themes now that each hero image already fades to its own
+           theme's near-paper/near-black — kept as the seam in case the two
+           ever drift apart again. */
         .deep::before {
           content: "";
           position: absolute;
@@ -406,8 +400,7 @@ export default function Home() {
           pointer-events: none;
           background: linear-gradient(to bottom, var(--hero-foot), var(--deep));
         }
-        .deep-in,
-        .foot-in {
+        .deep-in {
           width: min(1240px, 100%);
           margin: 0 auto;
         }
@@ -423,7 +416,7 @@ export default function Home() {
         }
         .deep-l { padding-left: clamp(0rem, 2vw, 2.2rem); }
         /* the thanks hang lower than the signup, on purpose */
-        .deep-r { margin-top: clamp(1rem, 3vw, 2.5rem); }
+        .deep-r { margin-top: var(--thanks-lead); }
 
         /* ---- (9) gratitudes ---- */
         .thanks { color: var(--ink-dim); }
@@ -457,89 +450,6 @@ export default function Home() {
            rest, which sit at --ink-dim via .thanks) — matched back to the rest
            of the list per feedback. */
 
-        /* ---- (7) footer ---- */
-        .foot {
-          display: flex;
-          flex-direction: column;
-          gap: 1.6rem;
-          padding: 2.6rem 0 0;
-          border-top: var(--rule) solid var(--foot-ink-dim);
-        }
-        .socials {
-          display: flex;
-          align-items: center;
-          gap: 0.9rem;
-          flex-wrap: wrap;
-        }
-        .lead, .handle {
-          font-size: 0.84em;
-          letter-spacing: 0.06em;
-          color: var(--foot-ink-dim);
-        }
-        .handle { color: var(--foot-ink); }
-
-        .socials ul {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-        .socials li:nth-child(even) { transform: translateY(-4px); }
-        .socials li:nth-child(3) { transform: translateY(3px); }
-
-        /* scoped to the icon list — the contact link lives in this row too and
-           must not inherit the 2.3rem icon box */
-        .socials ul :global(a) {
-          display: grid;
-          place-items: center;
-          width: 2.3rem;
-          height: 2.3rem;
-          color: var(--foot-ink);
-          transform-origin: center;
-          transition: filter 200ms ease, transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
-        }
-        .socials ul :global(a:hover) {
-          filter: brightness(1.25);
-          transform: rotate(var(--tilt)) scale(1.1);
-        }
-
-        .contact {
-          display: inline-flex;
-          align-items: baseline;
-          gap: 0;
-          flex: none;
-          white-space: nowrap;
-          margin-left: auto;
-          color: var(--foot-ink);
-          font-size: 1.02em;
-          letter-spacing: 0.02em;
-          transition: filter 180ms ease, transform 200ms ease;
-        }
-        .contact:hover { filter: brightness(1.25); transform: rotate(1.2deg) translateY(-1px); }
-
-        .fine {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          font-size: 0.78em;
-          color: var(--foot-ink-dim);
-          letter-spacing: 0.03em;
-        }
-        .fine :global(.impressum) {
-          color: var(--foot-ink);
-          border-bottom: var(--rule) solid var(--foot-ink-dim);
-          padding-bottom: 1px;
-          transition: filter 180ms ease, border-color 180ms ease;
-        }
-        .fine :global(.impressum:hover) {
-          filter: brightness(1.25);
-          border-bottom-color: var(--foot-ink);
-        }
-        .dot { opacity: 0.5; }
-
         .moon-slot {
           position: absolute;
           left: clamp(1.1rem, 4vw, 3.2rem);
@@ -554,23 +464,61 @@ export default function Home() {
            rather than merely textured. Left at the default stacking order, it
            renders above the plain background like the rest of this section's
            decorative layers (.deep::before, the grain itself); the shape's
-           own transparent PNG margins keep it clear of the nearby +contact+
-           text (checked below).
+           own transparent PNG margins keep it clear of the nearby text
+           (checked below).
 
-           Cropped on the right edge only, by half its width — the bottom sits
-           flush, uncropped, so the whole height (and roughly half the disc)
-           reads as visible, rather than the quarter-disc a corner-anchored
-           crop on both edges gives. */
+           Sits flush with .deep's own top edge rather than level with the
+           gratitudes — high enough that its curve reads as starting up near
+           the newsletter heading, well above the list, rather than as a bump
+           parked beside it. A fixed top (not tied to --dusk / --thanks-lead)
+           because the disc's radius, not the gratitudes' start line, is what
+           decides how far down it reaches; anchoring to the same line as
+           before pulled the disc's centre down toward the gratitudes and left
+           no room to grow it without crossing text.
+
+           52vw and even a full-height version (top: 0; bottom: 0, letting
+           aspect-ratio derive the width) were tried first: both put the
+           disc's centre close enough to the footer's height that no overhang
+           could pull "+contact+" clear without shrinking the visible sliver
+           to almost nothing. 44vw keeps the whole disc above the footer
+           entirely — it never reaches that low — while still clearing every
+           gratitude line by 85px+. Checked against each line's actual text
+           bounds (not this box's own edges) at 870/1425/1920px viewports. */
         .corner-moon {
           position: absolute;
-          right: -15vw;
-          bottom: 0;
-          width: 30vw;
+          right: -24vw;
+          top: 0;
+          width: 44vw;
           aspect-ratio: 1;
           pointer-events: none;
         }
         .corner-moon :global(img) {
           object-fit: contain;
+        }
+
+        /* ============ below the blue ==============================
+           The greeting only sits ON the painting while the viewport is wide
+           enough for the crop to leave a clear patch of sky beside the figure.
+           Below 1260px it drops out of the sky and onto the dark the image
+           fades into at the foot of the hero — the same place it lands on a
+           phone — so it takes the cream the rest of the lower page uses.
+           ========================================================== */
+        @media (max-width: 1259px) {
+          .bio { max-width: none; }
+          .bio p {
+            color: var(--on-hero);
+            text-shadow: none;
+            font-size: 0.94em;
+          }
+          .bio p:nth-of-type(2) { margin-left: 0; }
+        }
+
+        /* Tablet band only. Below 861px .mid becomes a flex column and the
+           greeting is already last, so it reaches the foot on its own — and
+           align-self there would push it sideways instead of down, since the
+           cross axis has turned horizontal. */
+        @media (min-width: 861px) and (max-width: 1259px) {
+          .mid-l { align-self: end; margin-top: 0; }
         }
 
         /* ============ narrow ====================================== */
@@ -588,7 +536,7 @@ export default function Home() {
           }
           .top-l { grid-area: l; }
           .top-r { grid-area: r; }
-          .top-c { grid-area: c; justify-self: center; margin-top: 0; }
+          .top-c { grid-area: c; justify-self: center; margin-top: 20vh; }
 
           .mid {
             grid-template-columns: 1fr;
@@ -605,31 +553,30 @@ export default function Home() {
           .mid-r { order: -1; align-self: center; margin: auto 0 0; }
           .mid-l { margin: 0 0 0.5rem; }
 
-          /* On a phone the greeting sits below the blue, on the black the image
-             fades into — so it takes the same cream the rest of the page's
-             lower half uses, and drops the halo it no longer needs. */
-          .bio { max-width: none; }
-          .bio p {
-            color: var(--on-hero);
-            text-shadow: none;
-            font-size: 0.94em;
-          }
-          .bio p:nth-of-type(2) { margin-left: 0; }
-
           .deep-in { grid-template-columns: 1fr; gap: 3rem; }
           .deep-l { padding-left: 0; }
           .deep-r { margin-top: 0; }
           .thanks li { margin-left: calc(var(--drift) * 0.55); }
 
-          .contact { margin-left: 0; }
+          /* .deep-in is one column here, so the gratitudes sit far below its
+             top edge and levelling the moon with that edge would only line it
+             up with the signup form. Bigger too (88vw vs. 44vw) and cropped
+             harder to match (45vw of 88, vs. 24 of 44) — twice the disc, held
+             to a similar visible slice.
+
+             Bottom-anchored, but not flush: a flush disc this size would
+             climb straight through the footer, since there's far less vertical
+             room on a single mobile column than beside the gratitudes on
+             desktop. 300px cleared the footer's own height (~160px here) with
+             margin to spare when checked; if the footer ever grows past that,
+             this needs bumping to match. Checked against the gratitudes'
+             actual text bounds at 375px: the widest line ("the heavens and the
+             earth") clears by ~30px, every other line by more. */
+          .corner-moon { top: auto; bottom: 300px; width: 88vw; right: -45vw; }
         }
 
         @media (max-width: 520px) {
           .title { font-size: clamp(1.7rem, 8.6vw, 2.6rem); }
-        }
-        @media (max-width: 560px) {
-          .rights, .dot.last { display: none; }
-          .foot { padding: 2rem 0 0; }
         }
       `}</style>
     </>
