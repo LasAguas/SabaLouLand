@@ -1,29 +1,33 @@
 // ---------------------------------------------------------------------------
-// /about — same three-band shape as /gallery (see that file's own header note):
+// /book — same three-band shape as /gallery (see that file's own header note,
+// and /store's before it), with a short run of text where their grids are:
 //
-//   header   desktop: one top-aligned band — language chips on the left, the
-//            head+titles centered in the space between them and the nav rail
-//            + colour mode on the right. mobile: language chips and colour
-//            mode flank the head+titles in one top row, then the nav row
+//   header   the same as /gallery's: desktop, one top-aligned band — language
+//            chips on the left, the head+titles centered in the space between
+//            them and the nav rail + colour mode on the right. mobile:
+//            language chips and colour mode flank the head+titles in one top
+//            row, then the nav row. No welcome banner — that one is the
+//            store's own
 //   ─────────
-//   about    the scrapbook — pictures pasted down among a few lines of text,
-//            every one at right angles. Its own component:
-//            components/Scrapbook.js
+//   contacts who to write to for booking, press and media, and a link to the
+//            EPK
 //   ─────────
 //   footer   the mailing-list signup and the home page's own footer
 //
-// Structure and styles here, WORDS in lib/content.js (three languages — the
-// German and Spanish still carry the English draft), the arrangement of the
-// pictures in components/Scrapbook.js.
+// The header markup and its styles are copied, not shared, exactly as /gallery
+// copied /store's: change one, change all three.
+//
+// Structure and styles here, WORDS in lib/content.js (three languages) — and
+// so are the addresses and the EPK's path, as BOOK_CONTACTS and EPK_HREF.
 // ---------------------------------------------------------------------------
 import Head from "next/head";
 import Image from "next/image";
 import LanguageSelector from "../components/LanguageSelector";
 import NavRail from "../components/NavRail";
 import Newsletter from "../components/Newsletter";
-import Scrapbook from "../components/Scrapbook";
 import SiteFooter from "../components/SiteFooter";
 import ThemeToggle from "../components/ThemeToggle";
+import { BOOK_CONTACTS, EPK_HREF } from "../lib/content";
 import { useLanguage } from "../lib/useLanguage";
 
 // same fixed phase the home page uses — see TODO.md item 12
@@ -35,19 +39,19 @@ import { useLanguage } from "../lib/useLanguage";
 const TITLE = "SABALOULAND";
 const LEAN = [-4, 2, -1.5, 3.5, -2.5, 4, -3, 0, 2.5, -1.5, 3];
 
-export default function About() {
+export default function Book() {
   const { t } = useLanguage();
-  const a = t.about;
+  const b = t.book;
 
   return (
     <>
       <Head>
-        <title>{`${a.title} — Sabalouland`}</title>
+        <title>{`${b.title} — Sabalouland`}</title>
         <meta
           name="description"
-          content="About Saba Lou — an independent multimedia artist, originally from Kassel and based in Berlin, making songs, textiles and paintings."
+          content="Booking, press and media contacts for Saba Lou, and a link to her EPK."
         />
-        <meta property="og:title" content={`${a.title} — Sabalouland`} />
+        <meta property="og:title" content={`${b.title} — Sabalouland`} />
         <meta property="og:type" content="website" />
       </Head>
 
@@ -65,7 +69,7 @@ export default function About() {
 
               {/* head + titles, centered as their own group between the
                   language chips and the nav.
-                  Desktop: face beside the arced title, caption tucked under
+                  Desktop: face beside the straight title, caption tucked under
                   that title. Mobile: face on top, the title straight
                   under it, caption under that — all in the top
                   row between the language chips and the colour switch.
@@ -94,7 +98,7 @@ export default function About() {
                   ))}
                 </h1>
 
-                <p className="sub">{a.title}</p>
+                <p className="sub">{b.title}</p>
               </header>
 
               <div className="mode">
@@ -109,9 +113,49 @@ export default function About() {
 
           <hr className="rule" />
 
-          {/* ============ the scrapbook ============================== */}
-          <section className="about-wrap" aria-label={a.title}>
-            <Scrapbook />
+          {/* ============ the contacts =============================== */}
+          <section className="book-wrap" aria-labelledby="book-heading">
+            <h2 id="book-heading" className="lead">
+              {b.heading}
+            </h2>
+
+            {/* A description list: each label is a term, its address the
+                definition. The address is the link — a mailto, so it opens
+                whatever mail app the visitor has, and is plain text they can
+                copy if they have none. */}
+            <dl className="contacts">
+              {BOOK_CONTACTS.map((c) => (
+                <div className="row" key={c.key}>
+                  <dt>{b.contacts[c.key]}</dt>
+                  <dd>
+                    <a
+                      href={`mailto:${c.email}`}
+                      data-track-type="other"
+                      data-track-label={c.key}
+                      data-track-category="contact"
+                    >
+                      {c.email}
+                    </a>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            {/* The press kit is a PDF in public/, so a plain anchor rather than
+                a Link — it isn't a route. Opens in its own tab so the visitor
+                keeps their place here. */}
+            <p className="epk-lead">{b.epkLead}</p>
+            <a
+              className="epk"
+              href={EPK_HREF}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-track-type="other"
+              data-track-label="epk"
+              data-track-category="epk"
+            >
+              {b.epk}
+            </a>
           </section>
 
           <hr className="rule" />
@@ -136,7 +180,8 @@ export default function About() {
           background: var(--deep);
           padding: clamp(1.1rem, 2.6vw, 2.4rem) clamp(1.1rem, 4vw, 3.2rem)
             clamp(7.5rem, 10vw, 9.5rem);
-          /* read by Scrapbook.js too, same as Gallery.js does on /gallery */
+          /* the breathing room around the two rules — on the bands, not the
+             rules, same as /store and /gallery */
           --band-pad: clamp(1.6rem, 3.6vw, 2.8rem);
         }
         .sheet {
@@ -170,8 +215,8 @@ export default function About() {
         .rail { grid-area: rail; justify-self: end; }
 
         /* ---- head + titles, centered as one group ----
-           Desktop: face on the left, the arced title beside it, "about me"
-           tucked under that title — three independent grid items rather
+           Desktop: face on the left, the straight title beside it, the page
+           name tucked under that title — three independent grid items rather
            than nested wrapper divs, so the narrow query below can redraw
            the map instead of restructuring flex parents. */
         .crest {
@@ -230,6 +275,79 @@ export default function About() {
           transform-origin: left center;
         }
 
+        /* ============ contacts ==================================== */
+        .book-wrap { padding: var(--band-pad) 0; }
+
+        /* the heading, in the same face and size as the newsletter's below */
+        .lead {
+          font-family: var(--font-title);
+          font-weight: 400;
+          font-size: clamp(1.5rem, 2.7vw, 2.15rem);
+          line-height: 1.1;
+          margin: 0 0 1rem;
+          color: var(--ink);
+        }
+
+        /* A few lines of text, not a grid to fill, so it keeps a narrow
+           measure on the left, on the same edge as the language chips above
+           and the footer below. */
+        .contacts {
+          margin: 0;
+          max-width: 38rem;
+        }
+        .row {
+          display: grid;
+          grid-template-columns: 11rem minmax(0, 1fr);
+          align-items: baseline;
+          column-gap: 1.2rem;
+          padding: 0.7rem 0;
+        }
+        .row dt {
+          color: var(--ink-dim);
+          font-size: 0.94em;
+        }
+        .row dd {
+          margin: 0;
+          min-width: 0;
+        }
+        /* Same link as the store's promo blocks: ink with a hairline under it,
+           the hairline turning rose on hover. An address can be wider than a
+           phone, and body has overflow-x clipped, so it must be allowed to
+           break rather than be cut off. */
+        .row a {
+          color: var(--ink);
+          font-size: 1.08em;
+          border-bottom: var(--rule) solid var(--ink-faint);
+          padding-bottom: 1px;
+          overflow-wrap: anywhere;
+          transition: filter 180ms ease, border-color 180ms ease;
+        }
+        .row a:hover {
+          filter: brightness(1.2);
+          border-bottom-color: var(--accent-2);
+        }
+
+        .epk-lead {
+          margin: 1.9rem 0 0.7rem;
+          color: var(--ink-dim);
+          font-size: 0.98em;
+        }
+        /* the same hand-drawn outline the newsletter's button wears */
+        .epk {
+          display: inline-block;
+          color: var(--ink);
+          border: var(--rule) solid var(--ink-faint);
+          border-radius: var(--wobble);
+          padding: 0.5rem 1.15rem;
+          transition: transform 220ms cubic-bezier(0.34, 1.4, 0.64, 1),
+            border-color 180ms ease, color 180ms ease;
+        }
+        .epk:hover {
+          transform: translateY(-2px);
+          border-color: var(--accent-2);
+          color: var(--accent-2);
+        }
+
         /* ============ footer ====================================== */
         .tail {
           display: grid;
@@ -254,7 +372,7 @@ export default function About() {
            this. Same rules as /gallery's wide query. */
         @media (min-width: 861px) {
           /* The crest sits in the 1fr column, so it centres in whatever is
-             left between the chips and the nav rather than on the page —
+             left between the chips and the nav rail rather than on the page —
              centred on the page it would crowd the nav now that the mode
              switch has moved in beside it. column-gap is also the space
              between the nav rail and the mode switch. */
@@ -287,13 +405,13 @@ export default function About() {
 
         /* ============ narrow ======================================
            Below this the title stops sitting beside the face and sits under it
-           instead: face, then the title, then
-           "about me" centered underneath. The crest also moves up into the
-           top row, between the language chips and the colour switch (see the
-           map below the 860px block — it has to come after it), so every
-           size in it is a share of the width those two leave, via cqw units
-           of the crest as a size container. See the matching comment in
-           store.js for the full reasoning. */
+           instead: face, then the title, then the
+           page name centered underneath. The crest also moves up into the top
+           row, between the language chips and the colour switch (see the map
+           below the 860px block — it has to come after it), so every size in
+           it is a share of the width those two leave, via cqw units of the
+           crest as a size container. See the matching comment in store.js for
+           the full reasoning. */
         @media (max-width: 780px) {
           .crest {
             grid-template-columns: 1fr;
@@ -351,6 +469,15 @@ export default function About() {
               "lang crest mode"
               "rail rail  rail";
             column-gap: 0.5rem;
+          }
+        }
+
+        /* Phones: the label stacks over its address, which then has the whole
+           line to itself. */
+        @media (max-width: 560px) {
+          .row {
+            grid-template-columns: minmax(0, 1fr);
+            row-gap: 0.15rem;
           }
         }
       `}</style>

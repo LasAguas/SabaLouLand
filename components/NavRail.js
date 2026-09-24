@@ -29,15 +29,23 @@ export default function NavRail() {
         .rail { width: 9.5rem; }
 
         /* under the title on a phone, so it reads as one row rather than a
-           column pushing everything else down */
+           column pushing everything else down. Never wraps to a second row —
+           instead the chips shrink together as the viewport narrows, via the
+           fluid font-size/padding below, so the row always holds one line. */
         @media (max-width: 860px) {
           .rail {
             width: auto;
             flex-direction: row;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             justify-content: center;
+            gap: clamp(0.2rem, 1.6vw, 0.35rem);
           }
-          .rail :global(.chip) { width: auto; }
+          .rail :global(.chip) {
+            width: auto;
+            white-space: nowrap;
+            font-size: clamp(0.62em, 3.6vw, 0.92em);
+            padding: clamp(0.16rem, 1vw, 0.28rem) clamp(0.3rem, 2.2vw, 0.7rem);
+          }
         }
       `}</style>
     </nav>

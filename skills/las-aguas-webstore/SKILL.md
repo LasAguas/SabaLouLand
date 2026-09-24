@@ -32,8 +32,10 @@ matters; everything around it is yours to design.
 
 The dashboard API base is always **`https://lasaguasproductions.com`**. The one
 per-artist value you need is the store's **`slug`** (e.g.
-`los-baby-jaguars-store`) — from the setup step below. Everything is charged in
-**EUR**; physical goods only.
+`los-baby-jaguars-store`) — from the setup step below. Everything is charged
+in **EUR**. Most products are physical, but a product (or one of its options)
+can be marked digital — see "Digital vs. physical" under Step 2, which
+affects whether a shipping picker is even shown.
 
 ---
 
@@ -86,6 +88,9 @@ before writing code:
 
 Do **not** build an email or address form — Stripe Checkout collects both.
 The optional `email` field in the checkout body only pre-fills Stripe's form.
+The one exception is **shipping option selection**: when `resolve` returns a
+non-empty `shippingOptions`, THIS storefront must present that picker and
+require a choice before checkout — see "Shipping" under Step 2.
 
 ---
 
@@ -103,27 +108,105 @@ The optional `email` field in the checkout body only pre-fills Stripe's form.
   "products": [{
     "id": "9c7…uuid…",
     "name": "El Fuego Tee",
+    // may contain \n line breaks the artist typed in the dashboard — render
+    // with white-space: pre-line (or convert \n to <br>), not a plain <p>,
+    // or they'll silently collapse away
     "description": "Heavyweight tee, acid yellow print.",
     "price_cents": 2500,           // €25.00 — display only, server re-prices at checkout
     // present when every variant shares one price; when they don't, use each
     // variant's own price_cents below instead — see price_min/max_cents.
     "price_min_cents": 2500,       // lowest variant price on this product
     "price_max_cents": 3000,       // highest — different from min means show it
-    "shipping_cents": 490,         // per unit, added at checkout
+    "shipping_cents": 490,         // per unit, added at checkout — only when the store has no shippingOptions (see below)
+    // This product's own price for each of the store's shipping options,
+    // keyed by shippingOptions[].id below — only meaningful once the store
+    // has any. "so_…": e.g. Germany could cost 400 for this tee and 600 for
+    // a heavier hoodie; every product prices each option separately.
+    "shipping_option_prices": { "so_a1b2c3d4": 400, "so_e5f6a7b8": 1000 },
     "images": ["https://…supabase…/store/….jpg"],
+    // free-text labels (up to 8 on the product, up to 8 on each variant),
+    // meant to be used as categories/filters. Never priced or checked at
+    // checkout. To group by category, match on product tags OR any variant's.
+    "tags": ["apparel"],
     // each variant can carry its OWN price_cents (e.g. a signed copy costs
     // more) — read v.price_cents, don't assume the product's own price_cents
-    // applies to every option
-    "variants": [{ "name": "S", "price_cents": 2500 }, { "name": "M", "price_cents": 2500 }, { "name": "L", "price_cents": 3000 }],
+    // applies to every option. Each also carries its own product_type — an
+    // album's "Vinyl" and "Digital Download" options genuinely differ, so a
+    // single product can mix physical and digital options.
+    "variants": [
+      { "name": "S", "price_cents": 2500, "product_type": "physical", "tags": [] },
+      { "name": "M", "price_cents": 2500, "product_type": "physical", "tags": [] },
+      { "name": "L", "price_cents": 3000, "product_type": "physical", "tags": [] }
+    ],
     "has_variants": true,
     "sort_order": 0,
+    // "physical" or "digital" — only used when has_variants is false; once a
+    // product has options, each option's own product_type above governs
+    // instead, since the buyer always ends up picking a specific one.
     "product_type": "physical"
   }],
   // Live stock. null = unlimited. Variant products track stock PER VARIANT
   // (product-level "remaining" stays null); no-variant products use "remaining".
-  "availability": { "9c7…": { "remaining": null, "variants": { "S": 3, "M": 0, "L": null } } }
+  "availability": { "9c7…": { "remaining": null, "variants": { "S": 3, "M": 0, "L": null } } },
+  // Up to 5 named shipping destinations/tiers the artist set up in the
+  // dashboard, e.g. Germany / EU / Worldwide / Local Pickup — empty [] for
+  // most stores (see below). No price here — see each product's own
+  // shipping_option_prices.
+  "shippingOptions": [{ "id": "so_a1b2c3d4", "label": "Germany" }, { "id": "so_e5f6a7b8", "label": "EU" }]
 }
 ```
+
+### Shipping: per-product flat fee, or named store-wide options
+
+Two mutually exclusive modes, and the dashboard is the source of truth for
+which one a given store is in — the page never chooses:
+
+- **`shippingOptions` empty (the default, and every store before this
+  existed):** shipping is per-product — `product.shipping_cents × qty`,
+  summed across the cart, charged as one flat "Shipping" line. This is what
+  the checkout example below shows for that mode.
+- **`shippingOptions` non-empty:** that store names up to 5 destinations or
+  tiers (e.g. Germany / EU / Worldwide / Local Pickup), and every product
+  prices each of them separately in `shipping_option_prices` (keyed by the
+  option's `id`, not its label — a renamed label keeps the same id and
+  prices). A zero price on every product for one option is a legitimate free
+  choice — that's how a "Local Pickup" option works.
+
+  **The buyer must choose one of these on YOUR page before you call
+  checkout — this is a requirement, not a nice-to-have.** Render
+  `shippingOptions` as a real picker (radio buttons / a select) as soon as
+  there's a cart, price it live from each cart line's own
+  `shipping_option_prices[optionId]` so the on-page total is exactly what
+  Stripe will charge, and don't enable "Checkout" until one is picked. Send
+  the chosen id as `shippingOptionId` in the checkout body below — **checkout
+  400s with `{"error": "Please choose a shipping option"}` without it.**
+  Stripe's own checkout page does **not** show a shipping picker for these
+  stores; the choice has already been made by the time you redirect there.
+  (This only applies once `shippingOptions` is non-empty — most stores still
+  don't set any, and for those, skip all of this and keep showing
+  `shipping_cents` per product as before.)
+
+### Digital vs. physical
+
+A product — or one of its options, when it has any (`variants[].product_type`)
+— can be `"physical"` (the default) or `"digital"`. **A cart with no physical
+item in it (every line's own `product_type` — the picked option's when the
+product `has_variants`, else the product's own) needs NO shipping choice at
+all, even on a store with `shippingOptions` set up:**
+
+- Don't render the shipping picker if nothing in the cart is physical.
+- Omit `shippingOptionId` entirely for that checkout call — checkout won't
+  ask for one, and any shipping-priced digital item is ignored server-side
+  regardless (never trust `shipping_option_prices` on a digital line — the
+  server already zeroes it, treat it as always free on your end too).
+- A **mixed** cart (a physical item alongside a digital one — e.g. an album
+  bought as a Vinyl + a separate Digital single) DOES still need the picker,
+  same as any all-physical cart; only the digital line's own cost is excluded
+  from the total shown.
+
+Recompute whether the picker is needed every time the cart changes, not just
+once on page load — a cart that starts as one digital download and later
+gets a physical item added needs the picker to appear at that point.
 
 ### Start a checkout
 
@@ -137,16 +220,23 @@ Header: `Content-Type: application/json`
     { "productId": "9c7…", "variant": "M", "qty": 2 },   // variant REQUIRED when the product has variants
     { "productId": "e41…", "qty": 1 }                     // omit variant when it has none
   ],
+  "shippingOptionId": "so_a1b2c3d4",          // REQUIRED whenever shippingOptions is non-empty AND the cart
+                                               // has a physical item; omit entirely otherwise — see "Digital
+                                               // vs. physical" above, don't send a made-up value
   "email": "fan@example.com",                // optional — pre-fills Stripe's email field
   "newsletterOptIn": true,                    // optional — adds the buyer to the mailing list
   "returnUrl": "https://losbabyjaguars.com/store"  // where Stripe sends the buyer back
 }
 // 200 → { "url": "https://checkout.stripe.com/…" }   → location.href = url
+// 400 → { "error": "Please choose a shipping option" } — shippingOptions is
+//        non-empty and shippingOptionId was missing or didn't match one of
+//        its ids (e.g. stale page state after the artist edited them)
 ```
 
 Qty is clamped to 10 per product+variant. Prices and shipping are recomputed
 server-side from the dashboard products — nothing the page sends affects the
-charge.
+charge, `shippingOptionId` included: it only selects WHICH already-priced
+option applies, the amount itself always comes from the product rows.
 
 ### Confirm after payment (on return)
 
@@ -164,7 +254,9 @@ Stripe redirects the buyer to `returnUrl?session_id=cs_…` (cancel returns to
   "orderCode": "LOSB-K7NM2Q4X",     // show this; it's also in the receipt email
   "name": "Ada", "email": "fan@example.com",
   "items": [{ "name": "El Fuego Tee", "variant": "M", "qty": 2, "unit_price_cents": 2500 }],
-  "subtotalCents": 5000, "shippingCents": 980, "totalCents": 5980
+  "subtotalCents": 5000, "shippingCents": 980,
+  "shippingLabel": null,  // the picked option's label, when the store uses shippingOptions
+  "totalCents": 5980
 }
 ```
 
@@ -178,6 +270,7 @@ Webstore page) with the shipping address Stripe collected.
 |---------|------|------|
 | OK | `200` | as above |
 | Bad cart (missing variant, inactive product, empty) | `400` | `{ "error": "Please pick an option for El Fuego Tee" }` |
+| Missing/invalid shipping choice (only when `shippingOptions` is non-empty) | `400` | `{ "error": "Please choose a shipping option" }` |
 | Store not found / unpublished | `404` | `{ "error": "Store not found" }` |
 | **Out of stock** | `409` | `{ "error": "Only 1 left of El Fuego Tee (M)." }` — show it, then **re-fetch `resolve`** and update the UI |
 | Confirm before payment finished | `402` | `{ "error": "Payment not completed" }` |
@@ -196,7 +289,80 @@ Pick the variant that matches the site. Style freely — keep the `fetch` logic,
 the `409` handling, and the `session_id` receipt flow. The examples show a
 grid + cart; collapse to a single product / direct-buy by trimming the render.
 The cart lives in `localStorage` so it survives the round-trip to Stripe when
-the buyer cancels.
+the buyer cancels. Neither example below wires in a shipping picker (most
+stores don't set `shippingOptions`) — if this one does, bolt the pattern below
+onto the cart section of whichever example you're using.
+
+### If `shippingOptions` is non-empty: add the picker (only for a physical cart)
+
+Required whenever the cart has a physical item — not optional, and not shown
+at all otherwise. See "Shipping" and "Digital vs. physical" under Step 2. The
+shape is the same regardless of framework:
+
+0. Before anything else, check whether the cart needs shipping at all —
+   `cartHasPhysicalItem(cart, products)` below. If it doesn't (every line is
+   digital), skip steps 1-4 entirely: no picker, no `shippingOptionId` in the
+   checkout call.
+1. Keep the chosen option's `id` in state (`null` until picked).
+2. Render one radio/option per `shippingOptions[]` entry, each showing what it
+   would actually cost for what's in the cart RIGHT NOW: sum every PHYSICAL
+   cart line's `product.shipping_option_prices[option.id] × qty` (skip
+   digital lines — the server does, and a mixed cart is common: an album
+   bought as both a Vinyl and a separate Digital single) — same math the
+   server does, so the number on screen never disagrees with the number
+   Stripe charges.
+3. Compute the cart total as `itemsSubtotal + thatShippingCost` and show it
+   live as the choice changes.
+4. Disable "Checkout" until something's picked; send its `id` as
+   `shippingOptionId` in the checkout call.
+
+```js
+// Drop-in helpers — adapt the render() calls to your framework/markup.
+
+// "physical" or "digital" for one cart line: the picked option's own type
+// when the product has options, else the product's — mirrors the server.
+function lineProductType(line, products) {
+  var p = products.find(function (x) { return x.id === line.productId; });
+  if (!p) return "physical";
+  if (line.variant) {
+    var v = (p.variants || []).find(function (x) { return x.name === line.variant; });
+    if (v) return v.product_type === "digital" ? "digital" : "physical";
+  }
+  return p.product_type === "digital" ? "digital" : "physical";
+}
+
+function cartHasPhysicalItem(cart, products) {
+  return cart.some(function (line) { return lineProductType(line, products) === "physical"; });
+}
+
+function shippingCostFor(optionId, cart, products) {
+  return cart.reduce(function (sum, line) {
+    if (lineProductType(line, products) === "digital") return sum;
+    var p = products.find(function (x) { return x.id === line.productId; });
+    var perUnit = (p && p.shipping_option_prices && p.shipping_option_prices[optionId]) || 0;
+    return sum + perUnit * line.qty;
+  }, 0);
+}
+
+// state.shippingOptionId starts null; state.shippingOptions = resolve's shippingOptions
+// var needsShipping = cartHasPhysicalItem(cart, products);
+// Render the picker only when needsShipping, one option per entry:
+// <label><input type="radio" name="shipping"
+//   checked={state.shippingOptionId === opt.id}
+//   onChange={() => setShippingOptionId(opt.id)} />
+//   {opt.label} — {euro(shippingCostFor(opt.id, cart, products))}
+// </label>
+
+// Checkout button: disabled until picked, but only when a pick is needed
+var canCheckout = !needsShipping || !!state.shippingOptionId;
+
+// In the checkout POST body:
+// { slug, items, shippingOptionId: needsShipping ? state.shippingOptionId : undefined, ... }
+```
+
+A store with an empty `shippingOptions`, or a cart with no physical item in
+it, never shows the picker and never sends `shippingOptionId` — exactly like
+today.
 
 ### Vanilla HTML + JS (any site)
 
@@ -288,7 +454,9 @@ the buyer cancels.
         '<div class="la-product" data-id="' + p.id + '">' +
         (p.images[0] ? '<img src="' + p.images[0] + '" alt="" />' : "") +
         "<h3>" + p.name + "</h3>" +
-        (p.description ? "<p>" + p.description + "</p>" : "") +
+        // white-space: pre-line keeps line breaks the artist typed in the
+        // dashboard's description field — plain <p> collapses them otherwise.
+        (p.description ? '<p style="white-space:pre-line">' + p.description + "</p>" : "") +
         "<p><strong>" + euro(p.price_cents) + "</strong>" +
         (p.shipping_cents ? ' <small>+ ' + euro(p.shipping_cents) + " shipping</small>" : "") + "</p>" +
         (p.has_variants
@@ -505,7 +673,9 @@ export default function Storefront() {
             <div key={p.id} className="la-product">
               {p.images[0] && <img src={p.images[0]} alt={p.name} />}
               <h3>{p.name}</h3>
-              {p.description && <p>{p.description}</p>}
+              {/* whiteSpace: "pre-line" keeps line breaks typed in the dashboard's
+                  description field — a plain <p> collapses them otherwise */}
+              {p.description && <p style={{ whiteSpace: "pre-line" }}>{p.description}</p>}
               <p>
                 <strong>{euro(p.price_cents)}</strong>
                 {p.shipping_cents > 0 && <small> + {euro(p.shipping_cents)} shipping</small>}
@@ -590,6 +760,9 @@ export default function Storefront() {
 - **Don't build email/address forms** — Stripe Checkout collects both, and
   the dashboard stores the shipping address on the order. `email` in the
   checkout body is only a pre-fill.
+- **Descriptions can contain line breaks** — a plain `<p>{product.description}</p>`
+  silently collapses them. Render with `white-space: pre-line` (both code
+  samples above already do) or convert `\n` to `<br>`.
 - **Strip `session_id` after confirming** (`history.replaceState`) so a
   refresh doesn't re-run confirm. Re-confirming is harmless
   (`alreadyConfirmed: true`, same receipt) but looks odd.
@@ -607,4 +780,12 @@ export default function Storefront() {
   `id` or `name`.
 - **Shipping is per unit** (`shipping_cents × qty`, summed across the cart)
   and appears as a real "Shipping" line in Stripe Checkout — show it next to
-  prices so the Stripe total isn't a surprise.
+  prices so the Stripe total isn't a surprise. Unless the store uses
+  `shippingOptions` instead (see Step 2 and Step 3) — then a picker on YOUR
+  page is required before checkout whenever the cart has a physical item, not
+  optional, and checkout 400s without a valid `shippingOptionId` in that case.
+- **A digital product/option never needs shipping.** No picker, no
+  `shippingOptionId`, no address collected — even on a store with
+  `shippingOptions` set up. Check every line's own `product_type` (the picked
+  option's when the product has options, else the product's) before deciding
+  whether to show the picker at all; see "Digital vs. physical" under Step 2.

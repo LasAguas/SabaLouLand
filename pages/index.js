@@ -15,7 +15,6 @@
 import Head from "next/head";
 import Image from "next/image";
 import LanguageSelector from "../components/LanguageSelector";
-import Moon from "../components/Moon";
 import NavRail from "../components/NavRail";
 import Newsletter from "../components/Newsletter";
 import SiteFooter from "../components/SiteFooter";
@@ -35,19 +34,29 @@ const HERO = {
 };
 
 // The big decorative corner moon (bottom-right). Any phase but new/full, per
-// the brief — waxing gibbous picked as a clear, recognisably-lit texture.
-const CORNER_MOON = "/images/moons/waning-gibbous.png";
+// the brief — waxing gibbous picked as a clear, recognisably-lit texture. This
+// is the photographic one from public/images/moons/realistic/, keyed onto a
+// transparent background (the source was rendered on flat #180500).
+const CORNER_MOON = "/images/moons/waxing-gibbous-realistic.png";
 
 // (2) the title, set letter by letter so it sits like it was drawn by hand.
-const TITLE = "SABA LOU LAND";
-// per-letter wobble — the hand-drawn jitter
-const LEAN = [-4, 2, -1.5, 3.5, 0, -2.5, 4, -3, 1, 0, 2.5, -1.5, 3];
-const RISE = [2, -3, 1, 4, 0, -1, 3, -2, 2, 0, -3, 1.5, -2];
-// a prominent arch across the whole word, added on top of the wobble above:
-// the centre letters ride highest, the outer letters dip and tilt outward, as
-// if the word were set on the rim of a circle 60vh across. Rotation and drop
-// both come from the same angle theta, so each letter's own tilt matches the
-// circle's tangent at that point instead of just approximating it.
+const TITLE = "SABALOULAND";
+// per-letter lean — hand-drawn tilt, added on top of the arc's own tangent
+// rotation below. Vertical position is left entirely to that arc (no
+// separate per-letter rise jitter) — a fixed offset there fought the curve's
+// own math letter to letter, especially near the centre where the arc's own
+// contribution is smallest, and the result read as stepped rather than
+// curved. Rotation doesn't have that problem: each span rotates around its
+// own bottom-centre, so a lean jitter doesn't displace the curve it sits on.
+const LEAN = [-4, 2, -1.5, 3.5, -2.5, 4, -3, 0, 2.5, -1.5, 3];
+// a prominent arch across the whole word: the centre letters ride highest,
+// the outer letters dip and tilt outward, as if the word were set on the rim
+// of a circle 60vh across. Rotation and drop both come from the same angle
+// theta, so each letter's own tilt matches the circle's tangent at that
+// point instead of just approximating it.
+// per-letter tightening (em, applied as negative margin-left) — the font's
+// own side bearings leave A-L, L-O, O-U and U-L visibly looser than the rest.
+const KERN = [0, 0, 0, -0.02, -0.02, -0.11, -0.04, -0.04, 0, 0, 0];
 const ARC_RADIUS_VH = 30; // 60vh diameter
 const ARC_THETA_MAX_DEG = 32; // how far around the rim the outer letters sit
 const ARC_CENTER = (TITLE.length - 1) / 2;
@@ -65,12 +74,12 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Saba Lou Land</title>
+        <title>Sabalouland</title>
         <meta
           name="description"
-          content="Saba Lou Land — portraits, musick, dreamscapes and comics from Saba Lou, an independent multimedia artist in Berlin."
+          content="Sabalouland — portraits, musick, dreamscapes and comics from Saba Lou, an independent multimedia artist in Berlin."
         />
-        <meta property="og:title" content="Saba Lou Land" />
+        <meta property="og:title" content="Sabalouland" />
         <meta property="og:type" content="website" />
         <meta property="og:image" content={HERO.dark} />
       </Head>
@@ -99,22 +108,21 @@ export default function Home() {
 
               {/* ---- (2) title + logo ---- */}
               <header className="top-c crest">
-                <h1 className="title" aria-label="Saba Lou Land">
+                <h1 className="title" aria-label="Sabalouland">
                   {TITLE.split("").map((ch, i) => {
                     const t = (i - ARC_CENTER) / ARC_CENTER; // -1 (left edge) .. 1 (right edge)
                     const thetaDeg = t * ARC_THETA_MAX_DEG;
                     const thetaRad = (thetaDeg * Math.PI) / 180;
                     const lean = (LEAN[i] || 0) + thetaDeg;
                     const arcRiseVh = ARC_RADIUS_VH * (1 - Math.cos(thetaRad));
-                    const rise = `calc(${RISE[i] || 0}px + ${arcRiseVh.toFixed(3)}vh)`;
                     return (
                       <span
                         key={i}
                         aria-hidden="true"
-                        className={ch === " " ? "gap" : "ch"}
-                        style={{ "--lean": `${lean}deg`, "--rise": rise }}
+                        className="ch"
+                        style={{ "--lean": `${lean}deg`, "--rise": `${arcRiseVh.toFixed(3)}vh`, marginLeft: `${KERN[i] || 0}em` }}
                       >
-                        {ch === " " ? " " : ch}
+                        {ch}
                       </span>
                     );
                   })}
@@ -179,14 +187,10 @@ export default function Home() {
           {/* ---- (7) footer: socials, contact, impressum ---- */}
           <SiteFooter />
 
-          {/* (10) the moon keeps watch from the bottom-left corner */}
-          <div className="moon-slot">
-            <Moon phase={MOON_PHASE} size={64} />
-          </div>
 
           {/* A second, decorative moon — hanging off the opposite corner.
-              CORNER_MOON is one of the eight textures in public/images/moons/,
-              fixed for now (anything but new/full, per the brief). Once the real
+              CORNER_MOON is one of the textures in public/images/moons/, fixed
+              for now (anything but new/full, per the brief). Once the real
               lunar-phase calculation feeds MOON_PHASE above, this can pick its
               file from the same value instead of being hardcoded. */}
           <div className="corner-moon" aria-hidden="true">
@@ -290,7 +294,6 @@ export default function Home() {
           transform: rotate(var(--lean)) translateY(var(--rise));
           transform-origin: center bottom;
         }
-        .gap { display: inline-block; width: 0.32em; }
         .logo :global(img) {
           display: block;
           width: clamp(58px, 7vw, 92px);
@@ -486,14 +489,20 @@ export default function Home() {
            bounds (not this box's own edges) at 870/1425/1920px viewports. */
         .corner-moon {
           position: absolute;
-          right: -24vw;
-          top: 0;
-          width: 44vw;
+          right: -14vw;
+          top: 10vh;
+          width: 34vw;
           aspect-ratio: 1;
           pointer-events: none;
         }
         .corner-moon :global(img) {
           object-fit: contain;
+          /* The box hangs off the right edge, so only its left ~45% is on
+             screen — and a waxing gibbous, as photographed from the north, is
+             lit on the right, which is exactly the half that would be off
+             screen. Turned 180° it is the same real phase seen from the south
+             (lit on the left), so the lit face is the part that shows. */
+          transform: rotate(180deg);
         }
 
         /* ============ below the blue ==============================

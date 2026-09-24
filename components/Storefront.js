@@ -58,16 +58,10 @@ function shelfOf(p) {
   return hit ? hit.key : "merch";
 }
 
-// The backdrop photo behind the grid while that shelf is open — the artist's
-// own sweater/fabric close-ups, one per category, including "all" and
-// "quilts" now that art exists for both.
-const SHELF_BG = {
-  all: "/images/store/everything-bg.jpg",
-  music: "/images/store/music-bg.jpg",
-  prints: "/images/store/prints-bg.jpg",
-  merch: "/images/store/merch-bg.jpg",
-  quilts: "/images/store/quilts-bg.jpg",
-};
+// (The backdrop photo for each shelf used to be mapped here. It moved to
+// pages/store.js — at desktop widths it paints behind the header and this
+// menu as well as the goods, so the page owns it — and reaches the goods as
+// the --shelf-bg custom property, which is all this file needs to know.)
 
 const euro = (cents) => `€${((cents || 0) / 100).toFixed(2)}`;
 const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
@@ -81,7 +75,10 @@ function loadCart() {
   }
 }
 
-export default function Storefront() {
+// `shelf` / `onShelfChange`: which shelf is open is owned by the page (see
+// pages/store.js), because the page paints that shelf's photo behind the
+// header too. This component just renders it and reports clicks.
+export default function Storefront({ shelf, onShelfChange }) {
   const { t } = useLanguage();
   const s = t.store;
 
@@ -91,7 +88,6 @@ export default function Storefront() {
   const [status, setStatus] = useState("loading");
   const [products, setProducts] = useState([]);
   const [availability, setAvailability] = useState({});
-  const [shelf, setShelf] = useState("all");
   const [page, setPage] = useState(0);
   const [cart, setCart] = useState([]);
   const [picks, setPicks] = useState({}); // productId -> { variant, qty }
@@ -244,16 +240,15 @@ export default function Storefront() {
   }, 0);
 
   function pickShelf(key) {
-    setShelf(key);
+    onShelfChange(key);
     setPage(0);
   }
-
-  const bgSrc = SHELF_BG[shelf];
 
   return (
     <div className="store">
       {/* ---- the shelves, down the left ---- */}
       <nav className="shelves" aria-label={s.shelvesLabel}>
+        <div className="shelves-in">
         <p className="shelves-lead">{s.shelvesLabel}</p>
         <ul>
           {SHELF_ORDER.map((key) => {
@@ -289,13 +284,11 @@ export default function Storefront() {
             </span>
           )}
         </button>
+        </div>
       </nav>
 
       {/* ---- the goods, on the right ---- */}
-      <div
-        className={`goods${bgSrc ? " themed" : ""}`}
-        style={bgSrc ? { backgroundImage: `url(${bgSrc})` } : undefined}
-      >
+      <div className="goods">
         <div className="goods-in">
         {receipt ? (
           <div className="receipt">
@@ -617,7 +610,10 @@ export default function Storefront() {
         .store {
           display: grid;
           grid-template-columns: 20% minmax(0, 1fr);
-          gap: clamp(1.2rem, 3vw, 2.4rem);
+          /* a variable so the wide-screen menu veil below can stretch across
+             this gap up to the divider */
+          --store-gap: clamp(1.2rem, 3vw, 2.4rem);
+          gap: var(--store-gap);
           /* Deliberately NOT align-items: start. Both columns stretch to the
              full height of the band, and the band's top and bottom space is
              padding on the columns rather than margin on the page's rules — so
@@ -684,17 +680,22 @@ export default function Storefront() {
           padding-inline: clamp(1.2rem, 3vw, 2.6rem);
           padding-block: var(--pad);
           min-height: 18rem;
+          /* The open shelf's photo, handed down as --shelf-bg by the page
+             (pages/store.js). Painted here at phone/tablet widths; from 861px
+             up the page paints it behind the header and menu as well and this
+             is switched off (see the wide block below). */
+          background-image: var(--shelf-bg, none);
           background-size: cover;
           background-position: center;
         }
-        /* A themed shelf (music/prints/merch) paints its photo as the box's
-           own background, then this ::before lays --scrim over it so the
-           product list, prices and basket stay legible against a busy fabric
-           close-up in both themes — the same token the hero uses for text on
-           the painting, just not spent anywhere else yet. ::before paints
+        /* Lays --scrim over the photo so the product list, prices and basket
+           stay legible against a busy fabric close-up in both themes — the
+           same token the hero uses for text on the painting. ::before paints
            before .goods-in in DOM order but both are position:relative, so
-           .goods-in's real content stacks above it without needing z-index. */
-        .goods.themed::before {
+           .goods-in's real content stacks above it without needing z-index.
+           (Every shelf has a photo now, so this is no longer conditional on a
+           "themed" class.) */
+        .goods::before {
           content: "";
           position: absolute;
           inset: 0;
@@ -1146,6 +1147,35 @@ export default function Storefront() {
           cursor: default;
         }
 
+        /* ---- wide: one backdrop behind header, menu and goods ----
+           861px and up. The page (pages/store.js) paints the open shelf's
+           photo as one panel behind the header, this menu and the goods, so
+           the goods stop painting their own copy. The menu sits under the
+           page's translucent --veil, which makes the photo read darker there
+           than behind the goods, which carry only --scrim.
+           The panel is wider than the content column by --stage-bleed either
+           side (all the way to the screen edge), so each piece reaches out
+           into that margin with a negative margin and pulls its content back
+           with equal padding: the text and the cards stay exactly where they
+           were, only the tint reaches further. Below 861px none of this
+           applies. */
+        @media (min-width: 861px) {
+          .goods {
+            background-image: none;
+            margin-right: calc(var(--stage-bleed, 0px) * -1);
+            padding-right: calc(clamp(1.2rem, 3vw, 2.6rem) + var(--stage-bleed, 0px));
+          }
+          /* The menu's veil runs out to the screen's left edge, and right
+             across the column gap and the divider's own width, so no strip of
+             bare photo shows between the menu and the goods. */
+          .shelves {
+            background: var(--veil, transparent);
+            margin: 0 calc((var(--store-gap) + var(--rule)) * -1) 0
+              calc(var(--stage-bleed, 0px) * -1);
+            padding-inline: var(--stage-bleed, 0px) calc(var(--store-gap) + var(--rule));
+          }
+        }
+
         /* ---- narrow ---- */
         @media (max-width: 1100px) {
           .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1163,12 +1193,70 @@ export default function Storefront() {
             align-items: baseline;
             gap: 0.35rem 1.1rem;
           }
+          /* the page's stage paints the photo full-bleed behind everything, so
+             the goods paint none of their own, carry the scrim edge to edge,
+             and there is no rule between the menu and them. Same trick as
+             the wide block: reach out with negative margins, pull the
+             content back with equal padding. */
+          .shelves {
+            margin-inline: calc(var(--stage-bleed, 0px) * -1);
+            padding-inline: var(--stage-bleed, 0px);
+          }
+          /* On a phone the whole menu (the label, the shelves and the basket
+             button) sits on one pale panel, dressed like the nav rail and the
+             language selector: chips in a row, the open shelf at full
+             strength with the same underline mark, the rest dimmed. Same
+             variables as the global panel and chip rules. The band behind
+             the panel carries the same translucent tint as the goods. */
+          .shelves { background: var(--scrim); }
+          .shelves-in {
+            padding: 0.9rem 0.8rem 1rem;
+            background: var(--panel-bg);
+            text-align: center;
+          }
+          /* the panel is off-white in both themes, so the label takes the
+             chips' dark brown ink rather than the page's faint one */
+          .shelves-lead { margin-bottom: 0.7rem; color: var(--chip-ink); font-size: 0.85em; }
+          .shelves ul {
+            justify-content: center;
+            align-items: stretch;
+            gap: 0.35rem;
+          }
+          .shelf,
+          .shelf.all {
+            background: var(--chip);
+            border: var(--rule) solid var(--chip-line);
+            color: var(--chip-ink);
+            padding: 0.28rem 0.7rem;
+            font-size: 0.92em;
+            letter-spacing: 0.01em;
+            line-height: 1.3;
+            opacity: 0.62;
+          }
+          .shelf.on,
+          .shelf.all.on { opacity: 1; color: var(--chip-ink); }
+          .shelf:hover { color: var(--chip-ink); transform: none; filter: brightness(1.08); }
+          .shelf .mark {
+            left: 0.7rem;
+            right: 0.7rem;
+            bottom: 0.18rem;
+            background: var(--lang-mark);
+          }
           .goods {
+            background-image: none;
             border-left: 0;
-            border-top: var(--rule) solid var(--ink-faint);
-            padding-inline: 0;
+            border-top: 0;
+            margin-inline: calc(var(--stage-bleed, 0px) * -1);
+            padding-inline: var(--stage-bleed, 0px);
             padding-block: 1.3rem var(--pad);
           }
+        }
+        @media (max-width: 600px) {
+          /* the global chip and panel rules shrink here too */
+          .shelves ul { gap: 0.28rem; }
+          .shelf,
+          .shelf.all { padding: 0.26rem 0.5rem; font-size: 0.86em; }
+          .shelf .mark { left: 0.5rem; right: 0.5rem; }
         }
         @media (max-width: 540px) {
           /* padding on the GRID, not a width on .card — .card itself stays

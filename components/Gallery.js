@@ -1,20 +1,28 @@
-// (gallery) the tab row and grid on /gallery. "fotos" is populated from
-// public/images/gallery (read at build time in pages/gallery.js); "videos"
-// comes from lib/content.js's GALLERY_VIDEOS, resolved to a real title and
-// thumbnail via YouTube oEmbed, also at build time. "art work" has no
-// content yet, so it shows the same empty state the other two fall back to
-// when they're empty. (sketch) sharp corners on the frames — unlike the
-// store's rounded polaroid cards, deliberately.
+// (gallery) the tab row and grid on /gallery. "artwork" and "fotos" are
+// populated from public/images/gallery (read at build time in
+// pages/gallery.js) — fotos from the folder itself, artwork from its
+// paintings/ and other/ subfolders; "videos" comes from lib/content.js's
+// GALLERY_VIDEOS, resolved to a real title and thumbnail via YouTube oEmbed,
+// also at build time. A tab with nothing in it shows an empty state.
+// Pictures are never cropped. Every one gets the same square cell, so the grid
+// stays square whatever is in it, and sits in the middle of that cell inside a
+// frame drawn at its own aspect ratio (worked out per file in
+// pages/gallery.js) — the rest of the cell is left empty.
+// (sketch) sharp corners on the frames — unlike the store's rounded polaroid
+// cards, deliberately.
 import { useState } from "react";
 import Image from "next/image";
 import { useLanguage } from "../lib/useLanguage";
 
-const TABS = ["fotos", "videos", "artwork"];
+// left to right — the first is the tab that's open on load
+const TABS = ["artwork", "videos", "fotos"];
 
-export default function Gallery({ photos, videos }) {
+export default function Gallery({ photos, videos, artwork }) {
   const { t } = useLanguage();
   const g = t.gallery;
-  const [tab, setTab] = useState("fotos");
+  const [tab, setTab] = useState(TABS[0]);
+  // fotos and artwork are the same grid of pictures, just different lists
+  const images = { fotos: photos, artwork }[tab];
 
   return (
     <div className="gallery">
@@ -35,21 +43,23 @@ export default function Gallery({ photos, videos }) {
         })}
       </nav>
 
-      {tab === "fotos" && (
-        photos.length > 0 ? (
+      {images && (
+        images.length > 0 ? (
           <ul className="grid">
-            {photos.map((photo) => (
-              <li key={photo.src} className="frame">
-                <span className="window">
-                  <Image
-                    src={photo.src}
-                    alt={photo.alt}
-                    fill
-                    sizes="(max-width: 420px) 100vw, (max-width: 680px) 50vw, (max-width: 960px) 33vw, 25vw"
-                    style={{ objectFit: "cover" }}
-                  />
+            {images.map((image) => (
+              <li key={image.src} className="frame">
+                <span className="slot">
+                  <span className="window" style={{ "--ratio": image.ratio }}>
+                    <Image
+                      src={image.src}
+                      alt={image.alt}
+                      fill
+                      sizes="(max-width: 420px) 100vw, (max-width: 680px) 50vw, (max-width: 960px) 33vw, 25vw"
+                      style={{ objectFit: "cover" }}
+                    />
+                  </span>
                 </span>
-                <p className="caption">{photo.alt}</p>
+                <p className="caption">{image.alt}</p>
               </li>
             ))}
           </ul>
@@ -80,8 +90,6 @@ export default function Gallery({ photos, videos }) {
           <p className="state">{g.empty}</p>
         )
       )}
-
-      {tab === "artwork" && <p className="state">{g.empty}</p>}
 
       <style jsx>{`
         .gallery {
@@ -136,15 +144,33 @@ export default function Gallery({ photos, videos }) {
 
         .frame { display: flex; flex-direction: column; }
 
+        /* the square cell every picture sits in, unframed — what is left of
+           it around the picture is the negative space that keeps the grid
+           square */
+        .slot {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          aspect-ratio: 1;
+        }
+
         .window {
           position: relative;
           display: block;
-          aspect-ratio: 1;
           overflow: hidden;
           background: var(--chip);
           border: var(--rule) solid var(--ink-faint);
           /* (sketch) sharp corners */
           border-radius: 0;
+        }
+        /* A picture's frame is its own outline: the full width of the cell if
+           it is wider than tall or square, and if it is taller, the full height
+           of the cell, which is a narrower width. The ratio is width / height,
+           so min(1, ratio) is the share of the cell's width to take, and
+           aspect-ratio works out the height from that. */
+        .slot .window {
+          aspect-ratio: var(--ratio);
+          width: calc(min(1, var(--ratio)) * 100%);
         }
         /* i.ytimg.com's own thumbnail files are 480x360 (4:3) — YouTube
            pads a 16:9 frame out to that with black letterboxing baked into

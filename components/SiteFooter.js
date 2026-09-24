@@ -9,9 +9,6 @@ import SocialIcon from "./SocialIcons";
 import { CONTACT_EMAIL, SOCIALS } from "../lib/content";
 import { useLanguage } from "../lib/useLanguage";
 
-// how far each social icon kicks when you hover it
-const SOCIAL_TILT = [-6, 3, -2, 5, -4];
-
 export default function SiteFooter({ divider = true }) {
   const { t } = useLanguage();
   const year = new Date().getFullYear();
@@ -21,13 +18,12 @@ export default function SiteFooter({ divider = true }) {
       <div className="socials">
         <span className="lead">{t.footer.findMe}</span>
         <ul>
-          {SOCIALS.map((s, i) => (
-            <li key={s.key} style={{ "--tilt": `${SOCIAL_TILT[i % SOCIAL_TILT.length]}deg` }}>
+          {SOCIALS.map((s) => (
+            <li key={s.key}>
               <a
                 href={s.href}
                 target="_blank"
                 rel="me noopener noreferrer"
-                className="tilt"
                 title={s.key}
                 data-track-type={s.track.type}
                 data-track-label={s.key}
@@ -45,7 +41,7 @@ export default function SiteFooter({ divider = true }) {
         {/* the plus signs are part of the mark, not decoration */}
         <a
           className="contact"
-          href={`mailto:${CONTACT_EMAIL}`}
+          href="/book"
           data-track-type="other"
           data-track-label="contact"
           data-track-category="contact"
@@ -107,8 +103,6 @@ export default function SiteFooter({ divider = true }) {
           align-items: center;
           gap: 0.75rem;
         }
-        .socials li:nth-child(even) { transform: translateY(-4px); }
-        .socials li:nth-child(3) { transform: translateY(3px); }
 
         /* scoped to the icon list — the contact link lives in this row too and
            must not inherit the 2.3rem icon box */
@@ -123,7 +117,7 @@ export default function SiteFooter({ divider = true }) {
         }
         .socials ul :global(a:hover) {
           filter: brightness(1.25);
-          transform: rotate(var(--tilt)) scale(1.1);
+          transform: none;
         }
 
         .contact {

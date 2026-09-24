@@ -182,6 +182,10 @@ I wrote both. Particularly:
   aunties" read literally as "die Tanten" / "las tías"; German uses
   "die Freund:innen" / "die Mentor:innen".
 - **The cookie banner copy** — new, in all three.
+- **The `/book` page** — new in all three: the heading ("nimm kontakt auf" /
+  "ponte en contacto"), the labels ("für booking / presse / medien", "para
+  contratarme / prensa / medios") and the line above the EPK button. Spanish
+  says "contratarme" to match the nav's "contrátame".
 
 All in `lib/content.js`.
 
@@ -203,9 +207,20 @@ Say which and I'll do it.
 
 ### 11. The remaining pages
 
-`/about` exists but is **unstyled** — it's just parking the earlier
-third-person bio so it isn't lost. `/book` still 404s. We said we'd design
-these together.
+**`/book` is built** — the gallery's header, a "get in touch" list of who to
+write to for booking, press and media (each address a `mailto:` link), a button
+to the EPK, then the footer. The addresses and the EPK's path are
+`BOOK_CONTACTS` and `EPK_HREF` in `lib/content.js`; the EPK is
+`public/Saba Lou EPK.pdf`, opened in its own tab. **The press address,
+`iforgotthefakemanagers@email.com`, reads like a stand-in** — swap it in
+`BOOK_CONTACTS` when the real one exists.
+
+**`/about` is built** as a scrapbook: the gallery's header, then pictures
+pasted down among a few lines of text — every picture square-cornered, level
+and unframed — then the footer. Arrangement in `components/Scrapbook.js`, words
+in `ABOUT_EN` in `lib/content.js`. The copy is a **first-person English draft**;
+German and Spanish show it untranslated (under their own page titles) until you
+have edited it and I translate.
 
 **`/store` is built** — header, the shelf menu and 3x2 grid, basket, Stripe
 handoff and receipt, footer, all three languages. It is wired to the real
@@ -213,12 +228,12 @@ dashboard API per `skills/las-aguas-webstore`. Two things stand between it and
 working, both on the dashboard side, not in this repo — see blocker 3 above.
 
 **`/gallery` is built**, from your sketch — the store's header minus the
-welcome banner, the fotos/videos/art work tabs, and a sharp-cornered grid
-(your "sharp corners" note, as opposed to the store's rounded polaroid
-cards). "fotos" is read straight off `public/images/gallery` at build time —
-drop a file in and it appears, nothing to wire. "videos" and "art work" have
-no content yet, so both show an empty state; say the word once there's
-something to put in them.
+welcome banner, the artwork/videos/fotos tabs (artwork open on load), and a
+sharp-cornered grid (your "sharp corners" note, as opposed to the store's
+rounded polaroid cards). "fotos" is read straight off `public/images/gallery`
+at build time — drop a file in and it appears, nothing to wire. "artwork" works
+the same way from the `paintings/` and `other/` folders inside it, paintings
+first. "videos" are the YouTube links in `GALLERY_VIDEOS` in `lib/content.js`.
 
 ### 12. The moon
 
