@@ -742,6 +742,10 @@ export default function Storefront() {
    Webstore page. Then **refund it in Stripe** and mark it as you see fit.
 4. Cancel path: back-arrow out of Stripe — the buyer lands on `returnUrl`
    with no `session_id` and the cart is still there (localStorage).
+5. Policies link: the store links to
+   `https://lasaguasproductions.com/shop-policies` (shipping, returns,
+   refunds, right of withdrawal) near the checkout button, so buyers can read
+   it before they pay.
 
 ---
 

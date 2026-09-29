@@ -1,0 +1,37 @@
+{
+  "lines": [
+    { "id": "l1", "t": null, "text": "i'm not mad and you're not wrong", "note": "n1" },
+    { "id": "l2", "t": null, "text": "i just want to describe", "note": "n1" },
+    { "id": "l3", "t": null, "text": "the place where your words fall", "note": "n1" },
+    { "id": "l4", "t": null, "text": "listen to my heart that beats", "note": "n2" },
+    { "id": "l5", "t": null, "text": "it's wiser than i think", "note": "n2" },
+    { "id": "l6", "t": null, "text": "haver you ever really listened to yours", "note": "n2" },
+    { "id": "l7", "t": null, "text": "what resonates reverberates", "note": "n3" },
+    { "id": "l8", "t": null, "text": "what echoes what is still", "note": "n3" },
+    { "id": "l9", "t": null, "text": "if it really truly ought to", "note": "n4" },
+    { "id": "l10", "t": null, "text": "it will", "note": "n4" },
+    { "id": "l11", "t": null, "text": "i devote myself to the truth", "note": "n5" },
+    { "id": "l12", "t": null, "text": "i am devoted to", "note": "n6" },
+    { "id": "l13", "t": null, "text": "when i am crying in my soup", "note": "n7" },
+    { "id": "l14", "t": null, "text": "i remain entirely devoted", "note": "n8" },
+    { "id": "l15", "t": null, "text": "to", "note": "n8" },
+    { "id": "l16", "t": null, "text": "to", "note": "n8" },
+    { "id": "l17", "t": null, "text": "to", "note": "n8" },
+    { "id": "l18", "t": null, "text": "to", "note": "n8" },
+    { "id": "l19", "t": null, "text": "to", "note": "n8" },
+    { "id": "l20", "t": null, "text": "to", "note": "n8" },
+    { "id": "l21", "t": null, "text": "to", "note": "n8" },
+    { "id": "l22", "t": null, "text": "to", "note": "n8" },
+    { "id": "l23", "t": null, "text": "to", "note": "n8" }
+  ],
+  "notes": {
+    "n1": { "body": "differences of perspective, with love, need not be hurtful\nthere are opportunities for connection everywhere" },
+    "n2": { "body": "rediscover the inner truth." },
+    "n3": { "body": "be sensitive, really listen!" },
+    "n4": { "body": "inshallah, with a mild, knowing smirk" },
+    "n5": { "body": "and am changed through the journey" },
+    "n6": { "body": ":)" },
+    "n7": { "body": "that's alright" },
+    "n8": { "body": "what are you devoted to?" }
+  }
+}

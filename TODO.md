@@ -191,6 +191,71 @@ All in `lib/content.js`.
 
 ---
 
+## 🟡 The NFC album kit (Nothing But Love)
+
+**Built:** `/k/<code>` — a private, code-gated page with synced, annotated
+lyrics, for an NFC tag on the cassette. `lib/nfcCodes.js` checks the code
+server-side; `lib/nfcAudio.js` resolves the audio file; `components/
+LyricsPlayer.js` does the line-by-line sync (plays the real file, highlights
+the current line via `requestAnimationFrame`, tap a line to jump there,
+lock-screen controls, keeps the screen awake while playing). `/dev/
+sync-editor` (dev-only, 404s in production) is the tool for turning a lyric
+sheet plus a local audio file into the timed JSON the player reads — play,
+tap along to each line, export. `content/lyrics/README.md` has the data
+format; `content/lyrics/example-song.json` is a placeholder showing the
+shape, not real lyrics.
+
+The tracker fix you asked for is in: any visit to `/k/<code>` (or the sync
+editor) reports as the fixed label `nfc-lyrics-nbl` in analytics, never the
+real code — see `lib/nfc.js`. It also skips the cookie banner and the
+consent-gated scroll/engagement timers, same as clicks elsewhere on the site
+don't need consent.
+
+**Also done (2026-09-29):** your written commentary email transcribed into
+`content/lyrics/drafts/*.json` for all 10 songs you'd written (UV Catastrophe
+excluded — your own email marks its commentary missing), matching every note
+to the line(s) you said it refers to — see `content/lyrics/drafts/README.md`
+for the calls I had to make transcribing it, and for the **real track order**,
+which the masters' filenames give as different from the order in your email
+(UV Catastrophe is second on side A, not last overall).
+
+The 11 masters found in the Las Aguas Supabase (`post-variations` bucket,
+`audio-library/4/` — same project this site's tracker already points at),
+downloaded, verified byte-for-byte, encoded to AAC, and duration-checked
+against the source WAVs (zero drift). They're staged in
+`public/nfc-audio/<slug>.m4a` (gitignored, local only) — these exact files
+are also what should go into the real private bucket once it exists, not a
+fresh re-encode.
+
+**Still needed, in the order that blocks the least:**
+
+1. **A private Supabase bucket.** Storage → New bucket in the dashboard's
+   project, uncheck "Public." I have no tool that can upload storage objects,
+   so this — and uploading the 11 files in `public/nfc-audio/` into it — is
+   yours regardless of anything else here.
+2. **Three env vars**, in `.env.local` and Vercel: `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API — a secret, don't hand
+   it to an AI assistant in chat), `NFC_AUDIO_BUCKET` (whatever you named the
+   bucket above). Until these are set, `/k/<code>` keeps using the local
+   `public/nfc-audio/` fallback — fine for testing, not for real listeners.
+3. **Time each song.** `/dev/sync-editor`, import the matching
+   `content/lyrics/drafts/<slug>.json`, tap along to the real audio, export
+   into `content/lyrics/<slug>.json`, add its entry to
+   `content/lyrics/album.json` in the real track order from the drafts README.
+4. **UV Catastrophe's commentary** — still unwritten, per your own email.
+5. **The domain** (this is also item 13 below) — tag URLs are permanent once
+   cassettes ship, so settle this before writing any tags.
+6. **Generate and write the codes.** `node scripts/generate-nfc-codes.js 15`
+   once the domain is set (`NFC_SITE_URL=...` env var), paste the codes into
+   `NFC_VALID_CODES` (here and in Vercel), write them to NTAG213 stickers
+   (case or J-card, not the tape shell — it goes into a deck), lock the tags
+   after writing. The script also has `--csv` for tag-writing services that
+   want a spreadsheet.
+
+Not done, and deliberately left for you to decide: translating the copy on
+the invalid-code screen (currently English only), and whether lines should
+ever carry more than plain text (an image scan of a handwritten note, say).
+
 ## 🟢 Decisions for you
 
 ### 10. The greeting's legibility on desktop

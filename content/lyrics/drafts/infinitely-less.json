@@ -1,0 +1,32 @@
+{
+  "lines": [
+    { "id": "l1", "t": null, "text": "do i have to die again", "note": "n1" },
+    { "id": "l2", "t": null, "text": "holding on is making me", "note": "n1" },
+    { "id": "l3", "t": null, "text": "cry the biggest cry oh when", "note": "n1" },
+    { "id": "l4", "t": null, "text": "will the last straw break it all", "note": "n1" },
+    { "id": "l5", "t": null, "text": "no longer can i pretend", "note": "n2" },
+    { "id": "l6", "t": null, "text": "feelings are in my control", "note": "n2" },
+    { "id": "l7", "t": null, "text": "and i can't even make amends", "note": "n2" },
+    { "id": "l8", "t": null, "text": "cause nothing that is left makes any sense", "note": "n2" },
+    { "id": "l9", "t": null, "text": "i can hear the cracking of my sternum", "note": "n3" },
+    { "id": "l10", "t": null, "text": "holding back a heart that never quits", "note": "n3" },
+    { "id": "l11", "t": null, "text": "rising from the ashes of inferno", "note": "n4" },
+    { "id": "l12", "t": null, "text": "the cosmos in just a single bit", "note": "n4" },
+    { "id": "l13", "t": null, "text": "paradox's ugly face has begun to grow on me", "note": "n5" },
+    { "id": "l14", "t": null, "text": "it is an acquired taste", "note": "n5" },
+    { "id": "l15", "t": null, "text": "it nothing short of the truth", "note": "n5" },
+    { "id": "l16", "t": null, "text": "i am boiled alive in all these feelings", "note": "n6" },
+    { "id": "l17", "t": null, "text": "boiled, reduced till there is nothing left", "note": "n6" },
+    { "id": "l18", "t": null, "text": "whatever i expected to be healing", "note": "n7" },
+    { "id": "l19", "t": null, "text": "this is all but more and infinitely less", "note": "n7" }
+  ],
+  "notes": {
+    "n1": { "body": "a deep realization is in a way the death of an old version of oneself\nthere is a point where this death is feared, and a point where it becomes desired relief\nto be very clear - i am NOT idealizing suicide here, but using the metaphor of death as a prelude to metaphorical rebirth within one lifetime." },
+    "n2": { "body": "what has been held back for many years cannot be any longer\nit rushes forth with overwhelming force" },
+    "n3": { "body": "the heart is strong" },
+    "n4": { "body": "after the pain of letting go passes, there opens a world of wonders\na simple clarity and freedom" },
+    "n5": { "body": "holding paradoxes is a high art\ntranscending the belief everything has a single answer liberates" },
+    "n6": { "body": "a grape needs to be crushed to become wine" },
+    "n7": { "body": "where i thought i need to do more, the answer often tends to be do less" }
+  }
+}

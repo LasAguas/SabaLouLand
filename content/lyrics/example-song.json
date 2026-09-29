@@ -1,0 +1,11 @@
+{
+  "lines": [
+    { "id": "l1", "t": 0, "text": "this is placeholder text, not a real lyric" },
+    { "id": "l2", "t": 4, "text": "one line per row, each with the second it starts", "note": "n1" },
+    { "id": "l3", "t": 9, "text": "open /dev/sync-editor to build the real file, from real audio" },
+    { "id": "l4", "t": 14, "text": "then swap this file (and the entry in album.json) for it" }
+  ],
+  "notes": {
+    "n1": { "body": "this is what a note looks like — it stays attached to this line even if its timing changes later" }
+  }
+}

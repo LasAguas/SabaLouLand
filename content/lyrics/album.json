@@ -1,0 +1,10 @@
+{
+  "title": "Nothing But Love",
+  "songs": [
+    {
+      "slug": "example-song",
+      "title": "Example Song (replace me)",
+      "audio": "example-song.m4a"
+    }
+  ]
+}

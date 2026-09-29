@@ -5,3 +5,7 @@ out
 .vercel
 .DS_Store
 *.log
+
+# Local-only audio for testing /k/<code> and /dev/sync-editor against a real
+# file — never the real serving path. See lib/nfcAudio.js.
+public/nfc-audio/

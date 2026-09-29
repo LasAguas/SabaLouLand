@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import localFont from "next/font/local";
 import { Patrick_Hand } from "next/font/google";
 import ConsentBanner from "../components/ConsentBanner";
+import { isGatedPath } from "../lib/nfc";
 import { startTracker, trackPageview } from "../lib/tracker";
 import { LanguageProvider } from "../lib/useLanguage";
 import { ThemeProvider } from "../lib/useTheme";
@@ -41,6 +42,12 @@ const fallbackHand = Patrick_Hand({
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
+  // router.pathname is the route pattern ("/k/[code]"), not the real URL, so
+  // this check never touches an actual cassette code — it just recognizes the
+  // route. A cassette's own page skips the site's cookie banner: it's reached
+  // by a physical tag, not by browsing, and it already carries no consent-
+  // gated tracking to ask permission for (see lib/tracker.js).
+  const isAlbumKit = isGatedPath(router.pathname);
 
   // Start once, then a pageview per client-side route change. Next navigates
   // without a reload, so without the second half the whole visit would be
@@ -60,7 +67,7 @@ export default function App({ Component, pageProps }) {
         </Head>
         <div className={`site-root ${springfield.variable} ${sabalou.variable} ${fallbackHand.variable}`}>
           <Component {...pageProps} />
-          <ConsentBanner />
+          {!isAlbumKit && <ConsentBanner />}
         </div>
       </LanguageProvider>
     </ThemeProvider>

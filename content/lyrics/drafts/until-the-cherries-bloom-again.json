@@ -1,0 +1,35 @@
+{
+  "lines": [
+    { "id": "l1", "t": null, "text": "until the cherries bloom again", "note": "n1" },
+    { "id": "l2", "t": null, "text": "til the leaves drip with april's foolish rains", "note": "n1" },
+    { "id": "l3", "t": null, "text": "til the ladies' nightcaps go insane", "note": "n1" },
+    { "id": "l4", "t": null, "text": "change in weather gives them spring migraines", "note": "n1" },
+    { "id": "l5", "t": null, "text": "dazed and tired", "note": "n2" },
+    { "id": "l6", "t": null, "text": "pools of pollen gather in the bay", "note": "n2" },
+    { "id": "l7", "t": null, "text": "unbugged and unwired", "note": "n3" },
+    { "id": "l8", "t": null, "text": "observations made in the light of day", "note": "n3" },
+    { "id": "l9", "t": null, "text": "til even the lame drop their canes", "note": "n4" },
+    { "id": "l10", "t": null, "text": "til the winter fog lift from our brains", "note": "n4" },
+    { "id": "l11", "t": null, "text": "until the maples bloom again", "note": "n4" },
+    { "id": "l12", "t": null, "text": "until there's everything to gain", "note": "n4" },
+    { "id": "l13", "t": null, "text": "dazed and tired", "note": "n5" },
+    { "id": "l14", "t": null, "text": "pools of pollen gather in the bay", "note": "n5" },
+    { "id": "l15", "t": null, "text": "unbugged and unwired", "note": "n5" },
+    { "id": "l16", "t": null, "text": "observation made in the light of", "note": "n5" },
+    { "id": "l17", "t": null, "text": "days melt to weeks tell me what is wrong", "note": "n5" },
+    { "id": "l18", "t": null, "text": "don't ask me where all the time has gone", "note": "n5" },
+    { "id": "l19", "t": null, "text": "until the bluebells sound again", "note": "n6" },
+    { "id": "l20", "t": null, "text": "til farina makes my nostrils flame", "note": "n6" },
+    { "id": "l21", "t": null, "text": "and my time will be yours to claim", "note": "n7" },
+    { "id": "l22", "t": null, "text": "til i see you again, dear friend", "note": "n7" }
+  ],
+  "notes": {
+    "n1": { "body": "here i really just wrote out a bunch of seasonal references, a celebration of spring!\n\nspringtime is upon us! so much going on." },
+    "n2": { "body": "it can be quite exhausting, the rebirth of nature" },
+    "n3": { "body": "a fresh, clear eye, the days longer." },
+    "n4": { "body": "potential in the air, circulation picking up, muscles limbering" },
+    "n5": { "body": "the pandemic era - among uncertainty and confusion is there enjowment to be found on the chaotic ride?" },
+    "n6": { "body": "pollen allergy!" },
+    "n7": { "body": "through the lockdown i was not able to see a friend at the time for a long while and the excitement of seeing them again blends easily with the spring metaphors of new beginnings and blossoming potentials.\nour grandparents planted a tree for each of us grandchildren; my sister sings the backups on this song - her tree is a cherry <3" }
+  }
+}
