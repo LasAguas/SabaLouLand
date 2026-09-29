@@ -1,10 +1,15 @@
 {
   "title": "Nothing But Love",
   "songs": [
-    {
-      "slug": "example-song",
-      "title": "Example Song (replace me)",
-      "audio": "example-song.m4a"
-    }
+    { "slug": "she", "title": "She", "audio": "she.m4a" },
+    { "slug": "my-umami", "title": "My Umami", "audio": "my-umami.m4a" },
+    { "slug": "until-the-cherries-bloom-again", "title": "Until the Cherries Bloom Again", "audio": "until-the-cherries-bloom-again.m4a" },
+    { "slug": "blissfully-still", "title": "Blissfully Still", "audio": "blissfully-still.m4a" },
+    { "slug": "nothing-but-love", "title": "Nothing But Love", "audio": "nothing-but-love.m4a" },
+    { "slug": "part-of-me", "title": "Part of Me", "audio": "part-of-me.m4a" },
+    { "slug": "where-all-unbinds", "title": "Where All Unbinds", "audio": "where-all-unbinds.m4a" },
+    { "slug": "am-i-willing", "title": "Am I Willing", "audio": "am-i-willing.m4a" },
+    { "slug": "infinitely-less", "title": "Infinitely Less", "audio": "infinitely-less.m4a" },
+    { "slug": "devoted", "title": "Devoted", "audio": "devoted.m4a" }
   ]
 }
