@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// /dev/sync-editor — the tool that turns a lyric sheet + an audio file into
+// /dev/sync-editor — the tool that turns a lyric sheet and an audio file into
 // the timed content/lyrics/<slug>.json the player reads.
 //
 // Dev-only: getServerSideProps 404s it in production, so it never ships as a
@@ -15,13 +15,19 @@
 //   3. Nudge any line's timing by ±0.1s/±0.5s afterwards; click a timed line
 //      to jump playback there and check it.
 //   4. Add notes to specific lines if you want them.
-//   5. Fill in the song slug + the exact audio filename it'll be served as,
+//   5. Once every line has a time, hit "watch it back" to play the song
+//      through the real synced player — same component /k/<code> uses — so
+//      you can feel whether the highlight timing is actually right before
+//      exporting. Go back to editing and nudge anything that's off, then
+//      watch it back again.
+//   6. Fill in the song slug + the exact audio filename it'll be served as,
 //      then "export JSON" and drop the file into content/lyrics/.
 //
 // "Import JSON" reloads a file you exported earlier so a pass can be resumed
 // or fixed without starting over.
 // ---------------------------------------------------------------------------
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import LyricsPlayer from "../../components/LyricsPlayer";
 
 export async function getServerSideProps() {
   if (process.env.NODE_ENV === "production") {
@@ -48,6 +54,7 @@ export default function SyncEditor() {
   const [cursor, setCursor] = useState(0); // index of the next untimed line
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [mode, setMode] = useState("edit"); // "edit" | "preview"
 
   useEffect(() => {
     return () => {
@@ -162,6 +169,58 @@ export default function SyncEditor() {
 
   const allTimed = lines.length > 0 && lines.every((l) => l.t != null);
 
+  // Reshapes the editor's own {id, t, text, note: bodyString} lines into
+  // exactly what LyricsPlayer takes — the same conversion exportJson does,
+  // just kept in memory instead of round-tripped through a downloaded file.
+  // Each line's own id doubles as its note's id; nothing dedupes shared notes
+  // the way a hand-written content/lyrics file might, but that only affects
+  // how the export JSON is organized, not what this preview shows.
+  const preview = useMemo(() => {
+    const notes = {};
+    const previewLines = lines.map((l) => {
+      const line = { id: l.id, t: l.t ?? 0, text: l.text };
+      if (l.note.trim()) {
+        notes[l.id] = { body: l.note.trim() };
+        line.note = l.id;
+      }
+      return line;
+    });
+    return { lines: previewLines, notes };
+  }, [lines]);
+
+  if (mode === "preview") {
+    return (
+      <main className="editor">
+        <button type="button" className="back" onClick={() => setMode("edit")}>
+          ← back to editing
+        </button>
+        <LyricsPlayer
+          song={{ title: slug || "watching it back" }}
+          audioSrc={audioUrl}
+          lines={preview.lines}
+          notes={preview.notes}
+        />
+        <style jsx>{`
+          .editor {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 2rem 1.2rem 4rem;
+          }
+          .back {
+            font: inherit;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            border: 1px solid var(--field-line);
+            background: var(--field);
+            color: var(--ink);
+            cursor: pointer;
+            margin-bottom: 1rem;
+          }
+        `}</style>
+      </main>
+    );
+  }
+
   return (
     <main className="editor">
       <h1>sync editor</h1>
@@ -253,8 +312,16 @@ export default function SyncEditor() {
             <button type="button" onClick={exportJson} disabled={!allTimed || !slug}>
               export JSON
             </button>
+            <button
+              type="button"
+              className="watch"
+              onClick={() => setMode("preview")}
+              disabled={!allTimed || !audioUrl}
+            >
+              ▶ watch it back
+            </button>
           </section>
-          {!allTimed && <p className="hint">every line needs a time before exporting.</p>}
+          {!allTimed && <p className="hint">every line needs a time before exporting or watching it back.</p>}
           {slug && (
             <p className="hint">
               remember to add <code>{`{ "slug": "${slug}", "title": "…", "audio": "${audioFilename || "…"}" }`}</code> to
@@ -337,6 +404,12 @@ export default function SyncEditor() {
         }
         .tap {
           background: var(--accent);
+          color: var(--deep);
+          border: none;
+          font-weight: 600;
+        }
+        .watch {
+          background: var(--accent-2);
           color: var(--deep);
           border: none;
           font-weight: 600;
