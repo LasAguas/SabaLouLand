@@ -227,6 +227,20 @@ against the source WAVs (zero drift). They're staged in
 are also what should go into the real private bucket once it exists, not a
 fresh re-encode.
 
+**Also done (2026-10-04):** the liner-notes page got a new look. Three designs
+were built side by side — track list behind a burger, no default scrollbar,
+mobile + desktop — and **Paper** was picked: the home page's painting, panels
+and blue paper chips, with each liner note a chip bracketed to the lyrics it's
+about. `/k/<code>` now serves it (`components/liner/Paper.js`, on the shared
+player in `lib/useLinerPlayer.js`, which also gives prev/next and starts the
+next song on its own when one ends). `/dev/liner-notes` shows the same page
+without needing a code (dev-only, 404s in production). The other two designs,
+Sleeve and Cassette, are still in `components/liner/` and the design switcher
+is commented out in `pages/dev/liner-notes.js` — the note at the top of that
+file says how to bring them back. `album.json` gained a `side` ("A"/"B") per
+song, which only Cassette reads. `components/LyricsPlayer.js` is the old plain
+player; only the sync editor's "watch it back" still uses it now.
+
 **Still needed, in the order that blocks the least:**
 
 1. **A private Supabase bucket.** Storage → New bucket in the dashboard's

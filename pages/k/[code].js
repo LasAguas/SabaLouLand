@@ -7,16 +7,24 @@
 // comes from, and lib/nfc.js + pages/_app.js for how this route keeps its
 // code out of the site's own analytics.
 //
+// What it shows is components/liner/Paper.js, driven by lib/useLinerPlayer.js
+// (playback, line sync, the track list). Two other designs were built next to
+// it — Sleeve and Cassette, both still in components/liner/ — and parked; see
+// the note at the top of pages/dev/liner-notes.js for how to bring them back.
+// pages/dev/liner-notes.js shows this same page without needing a code.
+//
 // Not linked from anywhere on the site (not in lib/content.js's NAV, not in
 // the footer) — the only way in is a code, which is the point.
 // ---------------------------------------------------------------------------
 import fs from "fs";
 import path from "path";
 import Head from "next/head";
-import { useState } from "react";
-import LyricsPlayer from "../../components/LyricsPlayer";
+import Paper from "../../components/liner/Paper";
+// import Cassette from "../../components/liner/Cassette";
+// import Sleeve from "../../components/liner/Sleeve";
 import { isValidCode } from "../../lib/nfcCodes";
 import { resolveAudioUrl } from "../../lib/nfcAudio";
+import { useLinerPlayer } from "../../lib/useLinerPlayer";
 
 const LYRICS_DIR = path.join(process.cwd(), "content", "lyrics");
 
@@ -41,6 +49,8 @@ export async function getServerSideProps({ params, res }) {
       return {
         slug: s.slug,
         title: s.title,
+        // which side of the tape it's on — only the parked Cassette design reads it
+        side: s.side ?? null,
         audioUrl,
         lines: lyrics.lines,
         notes: lyrics.notes || {},
@@ -52,8 +62,6 @@ export async function getServerSideProps({ params, res }) {
 }
 
 export default function AlbumKit({ valid, albumTitle, songs }) {
-  const [activeSlug, setActiveSlug] = useState(songs?.[0]?.slug);
-
   if (!valid) {
     return (
       <>
@@ -79,76 +87,30 @@ export default function AlbumKit({ valid, albumTitle, songs }) {
     );
   }
 
-  const song = songs.find((s) => s.slug === activeSlug) || songs[0];
-  const activeIdx = songs.findIndex((s) => s.slug === song.slug);
+  return <Kit albumTitle={albumTitle} songs={songs} />;
+}
 
-  function playNext() {
-    if (activeIdx >= 0 && activeIdx < songs.length - 1) {
-      setActiveSlug(songs[activeIdx + 1].slug);
-    }
-  }
+// Split out of AlbumKit so the player hook only ever runs for a valid code —
+// hooks can't sit below the early return above.
+function Kit({ albumTitle, songs }) {
+  const player = useLinerPlayer(songs);
 
   return (
     <>
       <Head>
         <title>{`${albumTitle} — liner notes`}</title>
         <meta name="robots" content="noindex, nofollow" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
       <main className="kit">
-        {songs.length > 1 && (
-          <nav className="tracks">
-            {songs.map((s) => (
-              <button
-                key={s.slug}
-                type="button"
-                className={s.slug === song.slug ? "track active" : "track"}
-                onClick={() => setActiveSlug(s.slug)}
-              >
-                {s.title}
-              </button>
-            ))}
-          </nav>
-        )}
-        <LyricsPlayer
-          key={song.slug}
-          song={song}
-          audioSrc={song.audioUrl}
-          lines={song.lines}
-          notes={song.notes}
-          onEnded={playNext}
-        />
+        <Paper player={player} albumTitle={albumTitle} />
+        {/* one <audio> for the whole album, so the next song can start on its own */}
+        <audio {...player.audioProps} />
       </main>
       <style jsx>{`
         .kit {
-          min-height: 100svh;
+          height: 100svh;
           background: var(--deep);
-          color: var(--ink);
-          padding: clamp(1rem, 3vw, 2rem);
-          display: flex;
-          flex-direction: column;
-          max-width: 640px;
-          margin: 0 auto;
-        }
-        .tracks {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-bottom: 1.2rem;
-        }
-        .track {
-          background: var(--field);
-          border: var(--rule) solid var(--field-line);
-          color: var(--ink-dim);
-          padding: 0.4rem 0.8rem;
-          border-radius: 999px;
-          font-size: 0.85em;
-          cursor: pointer;
-        }
-        .track.active {
-          background: var(--accent);
-          color: var(--deep);
-          border-color: var(--accent);
         }
       `}</style>
     </>
