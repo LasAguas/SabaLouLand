@@ -31,7 +31,11 @@ import NavRail from "../components/NavRail";
 import Newsletter from "../components/Newsletter";
 import SiteFooter from "../components/SiteFooter";
 import ThemeToggle from "../components/ThemeToggle";
-import { GALLERY_VIDEOS } from "../lib/content";
+import {
+  ARTWORK_CAPTIONS,
+  GALLERY_VIDEOS,
+  PHOTO_CAPTIONS,
+} from "../lib/content";
 import { useLanguage } from "../lib/useLanguage";
 
 // same fixed phase the home page uses — see TODO.md item 12
@@ -48,7 +52,9 @@ const IMAGE_RE = /\.(jpe?g|png|webp|avif|gif)$/i;
 
 // The artwork tab is these subfolders of GALLERY_DIR, in this order: the
 // paintings first, then the drawings, watercolours and the rest under "other".
-const ARTWORK_DIRS = ["paintings", "other"];
+// "../cloth" is public/images/cloth (the quilts, also shown on /about), one level
+// up from the gallery folder; the captions list puts them last.
+const ARTWORK_DIRS = ["paintings", "other", "../cloth"];
 
 // A picture's width / height as it is meant to be SEEN, so Gallery.js can frame
 // it in its own shape instead of cropping it to a square. sharp (already here:
@@ -87,6 +93,26 @@ async function readImages(subdir = "") {
   );
 }
 
+// Puts a tab's pictures in the order of its list in lib/content.js
+// (ARTWORK_CAPTIONS or PHOTO_CAPTIONS) and gives each listed picture its title
+// and description, matched on file name. alt still has to say something to a
+// screen reader, so it becomes both. A file with no entry keeps its file-name
+// caption and goes after the listed ones, in file-name order (sort is stable).
+function captionImages(images, captions) {
+  const place = (image) => {
+    const i = captions.findIndex((c) => c.file === image.alt);
+    return i === -1 ? captions.length : i;
+  };
+  return [...images]
+    .sort((a, b) => place(a) - place(b))
+    .map((image) => {
+      const entry = captions[place(image)];
+      if (!entry) return image;
+      const { title, description } = entry;
+      return { ...image, title, description, alt: `${title}, ${description}` };
+    });
+}
+
 // oEmbed needs no API key and returns a title + thumbnail for any public
 // video — a real caption instead of a guessed one. Network calls at build
 // time can fail, unlike the local fs read above, so this falls back to the
@@ -110,10 +136,11 @@ async function resolveVideo(video) {
 }
 
 export async function getStaticProps() {
-  const photos = await readImages();
-  const artwork = (
-    await Promise.all(ARTWORK_DIRS.map((dir) => readImages(dir)))
-  ).flat();
+  const photos = captionImages(await readImages(), PHOTO_CAPTIONS);
+  const artwork = captionImages(
+    (await Promise.all(ARTWORK_DIRS.map((dir) => readImages(dir)))).flat(),
+    ARTWORK_CAPTIONS
+  );
 
   const videos = await Promise.all(GALLERY_VIDEOS.map(resolveVideo));
 

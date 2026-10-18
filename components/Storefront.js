@@ -79,7 +79,7 @@ function loadCart() {
 // pages/store.js), because the page paints that shelf's photo behind the
 // header too. This component just renders it and reports clicks.
 export default function Storefront({ shelf, onShelfChange }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const s = t.store;
 
   // "loading" until resolve answers; "closed" covers both a 404 (unpublished
@@ -96,6 +96,12 @@ export default function Storefront({ shelf, onShelfChange }) {
   const [leaving, setLeaving] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [showBasket, setShowBasket] = useState(false);
+  // Named shipping zones (e.g. Germany / EU / Worldwide). The dashboard prices
+  // each per product (product.shipping_option_prices[zoneId]); when the store
+  // has any, the buyer must pick one before checkout and flat shipping_cents
+  // no longer applies.
+  const [zones, setZones] = useState([]);
+  const [zone, setZone] = useState("");
 
   // Escape closes the cart modal, same as the backdrop or the × does.
   useEffect(() => {
@@ -125,6 +131,7 @@ export default function Storefront({ shelf, onShelfChange }) {
           .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
       );
       setAvailability(data.availability || {});
+      setZones(Array.isArray(data.shippingOptions) ? data.shippingOptions : []);
       setStatus("open");
     } catch {
       setStatus("closed");
@@ -172,6 +179,40 @@ export default function Storefront({ shelf, onShelfChange }) {
     try { localStorage.setItem(CART_KEY, JSON.stringify(next)); } catch {}
   }
 
+  // ---- pre-orders, and what a line needs shipped ---------------------------
+  // `preorder` is { ships_on } while an option's release date is still ahead,
+  // else null; on the option when the product has any, else on the product.
+  const preorderOf = (p, variantName) =>
+    (variantName ? p.variants?.find((v) => v.name === variantName)?.preorder : p.preorder) || null;
+  const isDigitalLine = (p, variantName) =>
+    (variantName ? p.variants?.find((v) => v.name === variantName)?.product_type : p.product_type) === "digital";
+  const fmtDate = (iso) => {
+    try {
+      return new Intl.DateTimeFormat(lang, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(
+        new Date(`${iso}T12:00:00Z`)
+      );
+    } catch {
+      return iso;
+    }
+  };
+  const preorderNote = (p, variantName) => {
+    const pre = preorderOf(p, variantName);
+    if (!pre) return "";
+    return fill(isDigitalLine(p, variantName) ? s.preorderEmailed : s.preorderShips, { date: fmtDate(pre.ships_on) });
+  };
+  // Digital lines never ship, so they never need a zone and cost nothing to ship.
+  const cartNeedsShipping = cart.some((l) => {
+    const p = products.find((x) => x.id === l.productId);
+    return p && !isDigitalLine(p, l.variant);
+  });
+  const zoneCost = (zoneId) =>
+    cart.reduce((sum, l) => {
+      const p = products.find((x) => x.id === l.productId);
+      if (!p || isDigitalLine(p, l.variant)) return sum;
+      return sum + (parseInt(p.shipping_option_prices?.[zoneId], 10) || 0) * l.qty;
+    }, 0);
+  const needsZone = zones.length > 0 && cartNeedsShipping;
+
   function addToCart(p) {
     const pick = picks[p.id] || {};
     const variant = p.has_variants ? pick.variant || p.variants?.[0]?.name : null;
@@ -191,6 +232,10 @@ export default function Storefront({ shelf, onShelfChange }) {
 
   async function checkout() {
     if (!cart.length || leaving) return;
+    if (needsZone && !zones.some((z) => z.id === zone)) {
+      setMsg(s.pickZone);
+      return;
+    }
     setLeaving(true);
     setMsg("");
     try {
@@ -204,6 +249,7 @@ export default function Storefront({ shelf, onShelfChange }) {
             variant: l.variant || undefined,
             qty: l.qty,
           })),
+          shippingOptionId: needsZone ? zone : undefined,
           newsletterOptIn: optIn,
           returnUrl: window.location.origin + window.location.pathname,
         }),
@@ -236,8 +282,10 @@ export default function Storefront({ shelf, onShelfChange }) {
     // the line's own variant may be priced differently from the product's
     // base price_cents — same lookup the card display uses
     const unitPrice = p.variants?.find((v) => v.name === l.variant)?.price_cents ?? p.price_cents;
-    return sum + (unitPrice + (p.shipping_cents || 0)) * l.qty;
-  }, 0);
+    // flat per-unit shipping only on a store without named zones; with zones
+    // the chosen zone's price is added once below
+    return sum + (unitPrice + (zones.length ? 0 : p.shipping_cents || 0)) * l.qty;
+  }, 0) + (needsZone && zone ? zoneCost(zone) : 0);
 
   function pickShelf(key) {
     onShelfChange(key);
@@ -304,6 +352,9 @@ export default function Storefront({ shelf, onShelfChange }) {
                 <li key={i}>
                   {it.qty}× {it.name}
                   {it.variant ? ` (${it.variant})` : ""}
+                  {it.preorder && it.ships_on
+                    ? ` · ${fill(s.preorderShips, { date: fmtDate(it.ships_on) })}`
+                    : ""}
                 </li>
               ))}
             </ul>
@@ -352,7 +403,12 @@ export default function Storefront({ shelf, onShelfChange }) {
                   const inCart = cart
                     .filter((l) => l.productId === p.id)
                     .reduce((n, l) => n + l.qty, 0);
-                  const photo = (p.images || [])[0];
+                  const imgs = p.images || [];
+                  const imgIdx = imgs.length ? (((pick.img || 0) % imgs.length) + imgs.length) % imgs.length : 0;
+                  const photo = imgs[imgIdx];
+                  const isVideo = !!photo && /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(photo);
+                  const stepImg = (d) =>
+                    setPicks((v) => ({ ...v, [p.id]: { ...(v[p.id] || {}), img: imgIdx + d } }));
                   // The dashboard now prices per variant (a signed vinyl can
                   // cost more than the plain one) and sends price_min_cents /
                   // price_max_cents alongside the product's own price_cents.
@@ -376,17 +432,57 @@ export default function Storefront({ shelf, onShelfChange }) {
                           declared in next.config.js up front. */}
                       <span className="window">
                         {photo ? (
-                          <img src={photo} alt={p.name} loading="lazy" decoding="async" />
+                          isVideo ? (
+                            <video key={photo} src={photo} aria-label={p.name} autoPlay loop muted={!pick.sound} playsInline preload="metadata" />
+                          ) : (
+                            <img src={photo} alt={p.name} loading="lazy" decoding="async" />
+                          )
                         ) : (
                           <span className="noshot" aria-hidden="true" />
                         )}
+                        {isVideo && (
+                          <button
+                            type="button"
+                            className="sound"
+                            aria-label={pick.sound ? "Mute" : "Unmute"}
+                            aria-pressed={!!pick.sound}
+                            onClick={() => setPicks((v) => ({ ...v, [p.id]: { ...(v[p.id] || {}), sound: !(v[p.id] || {}).sound } }))}
+                          >
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" />
+                              {pick.sound ? (
+                                <>
+                                  <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                                  <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+                                </>
+                              ) : (
+                                <>
+                                  <path d="m16 9 5 6" />
+                                  <path d="m21 9-5 6" />
+                                </>
+                              )}
+                            </svg>
+                          </button>
+                        )}
+                        {imgs.length > 1 && (
+                          <>
+                            <button type="button" className="step prev" aria-label="Previous photo" onClick={() => stepImg(-1)}>‹</button>
+                            <button type="button" className="step next" aria-label="Next photo" onClick={() => stepImg(1)}>›</button>
+                            <span className="dots" aria-hidden="true">
+                              {imgs.map((_, i) => (
+                                <i key={i} className={i === imgIdx ? "on" : ""} />
+                              ))}
+                            </span>
+                          </>
+                        )}
                         {soldOut && <span className="stamp">{s.soldOut}</span>}
+                        {!soldOut && preorderOf(p, variant) && <span className="stamp pre">{s.preorderTag}</span>}
                       </span>
 
                       <h3>{p.name}</h3>
                       <p className="price">
                         <strong>{euro(activePrice)}</strong>
-                        {p.shipping_cents > 0 && (
+                        {!zones.length && p.shipping_cents > 0 && (
                           <small>
                             {" "}
                             + {euro(p.shipping_cents)} {s.shipping}
@@ -394,6 +490,7 @@ export default function Storefront({ shelf, onShelfChange }) {
                         )}
                       </p>
                       {priceVaries && <p className="varies">{s.pricesVary}</p>}
+                      {preorderNote(p, variant) && <p className="varies preorder-note">{preorderNote(p, variant)}</p>}
 
                       <div className="controls">
                         {p.has_variants && (
@@ -417,6 +514,7 @@ export default function Storefront({ shelf, onShelfChange }) {
                                 const label = [
                                   v.name,
                                   priceVaries ? euro(v.price_cents ?? p.price_cents) : null,
+                                  v.preorder ? s.preorderTag : null,
                                   out ? s.soldOut : null,
                                 ]
                                   .filter(Boolean)
@@ -459,7 +557,7 @@ export default function Storefront({ shelf, onShelfChange }) {
                         data-track-label={p.name}
                         data-track-category="merch"
                       >
-                        {soldOut ? s.soldOut : s.add}
+                        {soldOut ? s.soldOut : preorderOf(p, variant) ? s.preorder : s.add}
                       </button>
                       {inCart > 0 && (
                         <p className="already">
@@ -559,6 +657,7 @@ export default function Storefront({ shelf, onShelfChange }) {
                         <span>
                           {l.qty}× {p.name}
                           {l.variant ? ` (${l.variant})` : ""}
+                          {preorderNote(p, l.variant) && <small> · {preorderNote(p, l.variant)}</small>}
                         </span>
                         <button type="button" className="drop" onClick={() => dropLine(l)}>
                           ×<span className="sr-only"> {p.name}</span>
@@ -567,6 +666,22 @@ export default function Storefront({ shelf, onShelfChange }) {
                     );
                   })}
                 </ul>
+
+                {needsZone && (
+                  <label className="optin zone">
+                    <span>{s.shipTo}</span>
+                    <select value={zone} onChange={(e) => setZone(e.target.value)}>
+                      <option value="" disabled>
+                        {s.chooseZone}
+                      </option>
+                      {zones.map((z) => (
+                        <option key={z.id} value={z.id}>
+                          {z.label} · {euro(zoneCost(z.id))}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
 
                 <p className="sum">
                   {s.total} <strong>{euro(total)}</strong>{" "}
@@ -720,7 +835,7 @@ export default function Storefront({ shelf, onShelfChange }) {
           margin: 2rem 0;
           padding: 1.3rem 1.5rem;
           background: #faf6ee;
-          border-radius: 10px 14px 9px 13px / 13px 9px 14px 10px;
+          border-radius: 0;
         }
         .quilts-card p {
           margin: 0;
@@ -755,7 +870,7 @@ export default function Storefront({ shelf, onShelfChange }) {
           background: var(--panel-bg);
           color: var(--chip-ink);
           padding: 0.55rem 0.55rem 0.9rem;
-          border-radius: 10px 14px 9px 13px / 13px 9px 14px 10px;
+          border-radius: 0;
           transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1),
             filter 200ms ease;
         }
@@ -772,12 +887,65 @@ export default function Storefront({ shelf, onShelfChange }) {
           background: var(--chip);
           border-radius: 6px 8px 5px 7px / 7px 5px 8px 6px;
         }
-        .window img {
+        .window img,
+        .window video {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
         }
+        .step {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 1.7rem;
+          height: 1.7rem;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: rgba(250, 246, 238, 0.82);
+          color: inherit;
+          font-size: 1.2rem;
+          line-height: 1;
+          cursor: pointer;
+          z-index: 2;
+        }
+        .sound {
+          position: absolute;
+          top: 0.4rem;
+          right: 0.4rem;
+          width: 1.7rem;
+          height: 1.7rem;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: rgba(250, 246, 238, 0.82);
+          color: inherit;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 2;
+        }
+        .step.prev { left: 0.35rem; }
+        .step.next { right: 0.35rem; }
+        .dots {
+          position: absolute;
+          bottom: 0.4rem;
+          left: 0;
+          right: 0;
+          display: flex;
+          justify-content: center;
+          gap: 0.3rem;
+          pointer-events: none;
+        }
+        .dots i {
+          width: 0.4rem;
+          height: 0.4rem;
+          border-radius: 50%;
+          background: rgba(250, 246, 238, 0.55);
+        }
+        .dots i.on { background: rgba(250, 246, 238, 1); box-shadow: 0 0 0 1px rgba(65, 43, 23, 0.4); }
         .noshot {
           display: block;
           width: 100%;
@@ -802,6 +970,15 @@ export default function Storefront({ shelf, onShelfChange }) {
           white-space: nowrap;
         }
 
+        /* pre-order tag: a corner label so it reads at a glance, unlike the
+           centred sold-out stamp */
+        .stamp.pre {
+          left: 0.5rem;
+          top: 0.5rem;
+          transform: rotate(-4deg);
+          transform-origin: top left;
+        }
+
         .card h3 {
           margin: 0.6rem 0 0.1rem;
           font-family: var(--font-title);
@@ -822,6 +999,8 @@ export default function Storefront({ shelf, onShelfChange }) {
           font-style: italic;
           opacity: 0.72;
         }
+
+        .preorder-note { font-style: normal; font-weight: 600; opacity: 0.9; }
 
         .controls {
           display: flex;
@@ -895,6 +1074,7 @@ export default function Storefront({ shelf, onShelfChange }) {
           background: var(--chip);
           border: var(--rule) solid var(--chip-line);
           color: var(--chip-ink);
+          border-radius: 6px 9px 5px 8px / 8px 5px 9px 6px;
           font-size: 0.86em;
           cursor: pointer;
           transition: filter 180ms ease, transform 180ms ease;
@@ -964,6 +1144,19 @@ export default function Storefront({ shelf, onShelfChange }) {
           cursor: pointer;
         }
         .optin input { margin-top: 0.28em; accent-color: var(--accent-2); flex: none; }
+        /* the shipping-zone picker shares the opt-in row's look: label, then a
+           select that takes the rest of the line */
+        .optin.zone { align-items: center; cursor: default; }
+        .optin.zone select {
+          flex: 1 1 auto;
+          min-width: 0;
+          background: rgba(255, 255, 255, 0.5);
+          color: var(--chip-ink);
+          border: var(--rule) solid var(--chip-line);
+          border-radius: 5px 7px 4px 6px / 6px 4px 7px 5px;
+          padding: 0.22rem 0.35rem;
+          font-size: 1em;
+        }
 
         .acts { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
         .pay {

@@ -133,17 +133,22 @@ require a choice before checkout — see "Shipping" under Step 2.
     // applies to every option. Each also carries its own product_type — an
     // album's "Vinyl" and "Digital Download" options genuinely differ, so a
     // single product can mix physical and digital options.
+    // preorder is { "ships_on": "YYYY-MM-DD" } while that option's release date
+    // is still ahead (sold as a pre-order, see "Pre-orders" below), else null.
     "variants": [
-      { "name": "S", "price_cents": 2500, "product_type": "physical", "tags": [] },
-      { "name": "M", "price_cents": 2500, "product_type": "physical", "tags": [] },
-      { "name": "L", "price_cents": 3000, "product_type": "physical", "tags": [] }
+      { "name": "S", "price_cents": 2500, "product_type": "physical", "tags": [], "preorder": null },
+      { "name": "M", "price_cents": 2500, "product_type": "physical", "tags": [], "preorder": null },
+      { "name": "L", "price_cents": 3000, "product_type": "physical", "tags": [], "preorder": { "ships_on": "2026-11-20" } }
     ],
     "has_variants": true,
     "sort_order": 0,
     // "physical" or "digital" — only used when has_variants is false; once a
     // product has options, each option's own product_type above governs
     // instead, since the buyer always ends up picking a specific one.
-    "product_type": "physical"
+    "product_type": "physical",
+    // Same shape as a variant's preorder. Only used when has_variants is false;
+    // once a product has options, each option carries its own date.
+    "preorder": null
   }],
   // Live stock. null = unlimited. Variant products track stock PER VARIANT
   // (product-level "remaining" stays null); no-variant products use "remaining".
@@ -208,6 +213,31 @@ Recompute whether the picker is needed every time the cart changes, not just
 once on page load — a cart that starts as one digital download and later
 gets a physical item added needs the picker to appear at that point.
 
+### Pre-orders
+
+An option (or a product with no options) can be sold before its release date.
+While `preorder` is non-null the buyer pays now and the item ships from
+`preorder.ships_on`; once that date passes the field goes back to `null` and it
+is an ordinary option. Everything else is exactly a regular order: the same
+shipping zones and prices, the same stock count (the artist sets Stock to the
+number of copies they will take, blank is unlimited), the same orders list.
+
+- Read `preorder` on the option the buyer has picked (the product's own when
+  `has_variants` is false). Show the date on the card and in the cart, and
+  relabel the button ("Pre-order"). Format the date yourself from
+  `ships_on` (it is a plain calendar date, no time zone).
+- A digital option works the same way: paid now, and the one-time download
+  link is emailed on its release date, using the files on the option by then.
+  Don't promise an instant download for it.
+- Nothing extra to send at checkout. The server re-reads the dates, puts them
+  on the Stripe page and in the receipt, and a pre-order buyer is emailed when
+  the physical item is marked shipped, so a page that does not show the date
+  is still safe to sell on, just less clear.
+- A pre-order option whose stock is `0` reads as sold out, as any option does.
+- If a date moves after people have paid, the team or the artist updates those
+  orders and emails the buyers from the dashboard. Nothing for the page to do;
+  keep reading `preorder` from `resolve`.
+
 ### Start a checkout
 
 `POST https://lasaguasproductions.com/api/store-public/checkout`
@@ -253,6 +283,7 @@ Stripe redirects the buyer to `returnUrl?session_id=cs_…` (cancel returns to
   "alreadyConfirmed": false,        // true when the webhook beat the redirect — same receipt
   "orderCode": "LOSB-K7NM2Q4X",     // show this; it's also in the receipt email
   "name": "Ada", "email": "fan@example.com",
+  // a line sold as a pre-order also has "preorder": true, "ships_on": "2026-11-20"
   "items": [{ "name": "El Fuego Tee", "variant": "M", "qty": 2, "unit_price_cents": 2500 }],
   "subtotalCents": 5000, "shippingCents": 980,
   "shippingLabel": null,  // the picked option's label, when the store uses shippingOptions
@@ -746,6 +777,9 @@ export default function Storefront() {
    `https://lasaguasproductions.com/shop-policies` (shipping, returns,
    refunds, right of withdrawal) near the checkout button, so buyers can read
    it before they pay.
+6. Pre-orders (if any option has one): the card shows its release date and a
+   "Pre-order" button, the cart line repeats the date, and the Stripe page and
+   the receipt both state it.
 
 ---
 
@@ -779,6 +813,8 @@ export default function Storefront() {
   in `connect-src`: `connect-src 'self' https://lasaguasproductions.com`.
   Product images come from Supabase storage — allow that host in `img-src`
   (copy the hostname from a product's image URL).
+- **Pre-orders are per option.** Read `preorder` on the picked option (or the
+  product when `has_variants` is false), not on the product alone.
 - **One store per artist.** The slug covers the whole catalogue; there are no
   per-product slugs. To feature one product, filter client-side by product
   `id` or `name`.

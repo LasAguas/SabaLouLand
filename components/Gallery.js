@@ -59,7 +59,18 @@ export default function Gallery({ photos, videos, artwork }) {
                     />
                   </span>
                 </span>
-                <p className="caption">{image.alt}</p>
+                {/* artwork carries a title and a description, one line
+                    each; a picture without them is captioned by its alt */}
+                <p className="caption">
+                  {image.title ? (
+                    <>
+                      <span className="line">{image.title}</span>
+                      <span className="line">{image.description}</span>
+                    </>
+                  ) : (
+                    image.alt
+                  )}
+                </p>
               </li>
             ))}
           </ul>
@@ -70,7 +81,7 @@ export default function Gallery({ photos, videos, artwork }) {
 
       {tab === "videos" && (
         videos.length > 0 ? (
-          <ul className="grid">
+          <ul className="grid videos">
             {videos.map((video) => (
               <li key={video.id} className="frame">
                 <a
@@ -141,6 +152,9 @@ export default function Gallery({ photos, videos, artwork }) {
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: clamp(1rem, 2.4vw, 1.8rem);
         }
+
+        /* videos run larger: two to a row until the phone-narrow single column */
+        .grid.videos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
         .frame { display: flex; flex-direction: column; }
 
@@ -221,6 +235,8 @@ export default function Gallery({ photos, videos, artwork }) {
           color: var(--ink-faint);
           text-align: center;
         }
+        /* title, then description under it, each on its own line */
+        .line { display: block; }
 
         .state {
           margin: 0;
@@ -237,7 +253,7 @@ export default function Gallery({ photos, videos, artwork }) {
           .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 420px) {
-          .grid { grid-template-columns: 1fr; }
+          .grid, .grid.videos { grid-template-columns: 1fr; }
           .tab { font-size: 0.92em; padding: 0.5rem 0.3rem; }
         }
       `}</style>

@@ -15,13 +15,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "../lib/useLanguage";
 
-// The fabric close-ups the store paints behind its shelves, laid out here as
-// swatches. Where each one sits is in the .s1-.s4 rules below.
-const SWATCHES = [
-  { cls: "s1", src: "/images/store/music-bg.jpg" },
-  { cls: "s2", src: "/images/store/merch-bg.jpg" },
-  { cls: "s3", src: "/images/store/everything-bg.jpg" },
-  { cls: "s4", src: "/images/store/prints-bg.jpg" },
+// The two quilts in the cloth spread — the same files the gallery's artwork tab
+// ends on. Where each one sits is in the .q1/.q2 rules below.
+const QUILTS = [
+  { cls: "q1", src: "/images/cloth/Saba Lou Quilt 1.jpg", width: 3472, height: 4624 },
+  { cls: "q2", src: "/images/cloth/Saba Lou Quilt 2.jpg", width: 4624, height: 3472 },
 ];
 
 // A picture shown through a window into its file, for the scans that carry an
@@ -121,25 +119,25 @@ export default function Scrapbook() {
           <h2 id="about-cloth" className="hd">{a.cloth.heading}</h2>
           <p>{a.cloth.body}</p>
           <Link
-            href="/store"
+            href="/gallery"
             className="more"
-            data-track-type="merch"
-            data-track-label="about-store"
-            data-track-category="merch"
+            data-track-type="other"
+            data-track-label="about-cloth-gallery"
+            data-track-category="nav"
           >
             {a.cloth.link}
           </Link>
         </div>
 
-        <div className="swatches" aria-hidden="true">
-          {SWATCHES.map((s) => (
-            <span key={s.cls} className={`sw ${s.cls}`}>
+        <div className="swatches">
+          {QUILTS.map((q, i) => (
+            <span key={q.cls} className={`sw ${q.cls}`}>
               <Image
-                src={s.src}
-                alt=""
-                fill
-                sizes="(max-width: 860px) 45vw, 260px"
-                style={{ objectFit: "cover" }}
+                src={q.src}
+                alt={a.alt.quilts[i]}
+                width={q.width}
+                height={q.height}
+                sizes="(max-width: 860px) 50vw, 330px"
               />
             </span>
           ))}
@@ -248,6 +246,11 @@ export default function Scrapbook() {
         .sw {
           position: relative;
           display: block;
+        }
+        .sw :global(img) {
+          display: block;
+          width: 100%;
+          height: auto;
         }
 
         .work { margin: 0; }
@@ -398,13 +401,11 @@ export default function Scrapbook() {
           .swatches {
             position: relative;
             grid-column: 6 / span 7;
-            aspect-ratio: 100 / 46;
+            aspect-ratio: 100 / 56;
           }
           .swatches .sw { position: absolute; }
-          .s1 { left: 0; top: 24%; width: 24%; aspect-ratio: 3 / 4; }
-          .s2 { left: 21%; top: 0; width: 31%; aspect-ratio: 4 / 3; }
-          .s3 { left: 48%; top: 34%; width: 26%; aspect-ratio: 1; }
-          .s4 { left: 66%; top: 0; width: 34%; aspect-ratio: 3 / 2; }
+          .q1 { left: 4%; top: 0; width: 38%; }
+          .q2 { left: 40%; top: 20%; width: 56%; }
 
           .paint .works { grid-column: 1 / span 7; grid-row: 1; }
           /* hung from the same line the second column of works is, so the
@@ -466,10 +467,8 @@ export default function Scrapbook() {
             aspect-ratio: 100 / 66;
           }
           .swatches .sw { position: absolute; }
-          .s1 { left: 0; top: 14%; width: 38%; aspect-ratio: 3 / 4; }
-          .s2 { left: 32%; top: 0; width: 44%; aspect-ratio: 4 / 3; }
-          .s3 { left: 52%; top: 42%; width: 32%; aspect-ratio: 1; }
-          .s4 { left: 64%; top: 14%; width: 36%; aspect-ratio: 3 / 2; }
+          .q1 { left: 0; top: 0; width: 46%; }
+          .q2 { left: 42%; top: 24%; width: 58%; }
           .paint .works { grid-column: 1 / -1; grid-row: 2; margin-top: 1.8rem; }
         }
       `}</style>

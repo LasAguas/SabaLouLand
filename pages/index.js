@@ -38,6 +38,12 @@ const HERO = {
 // is the photographic one from public/images/moons/realistic/, keyed onto a
 // transparent background (the source was rendered on flat #180500).
 const CORNER_MOON = "/images/moons/waxing-gibbous-realistic.png";
+// Light theme swaps the photographic moon for the blue full moon — a mockup
+// for now, one image standing in for whatever phases the light set ends up
+// with. Same transparent-PNG box as above (disc ~89% of the frame, centred),
+// so it takes the .corner-moon slot without re-measuring. The space in the
+// filename is encoded for the URL; the file keeps the name it arrived with.
+const CORNER_MOON_LIGHT = "/images/moons/Blue%20Full%20Moon.png";
 
 // (2) the title, set letter by letter so it sits like it was drawn by hand.
 const TITLE = "SABALOULAND";
@@ -193,8 +199,18 @@ export default function Home() {
               for now (anything but new/full, per the brief). Once the real
               lunar-phase calculation feeds MOON_PHASE above, this can pick its
               file from the same value instead of being hardcoded. */}
+          {/* Both are in the DOM and CSS picks one off <html data-theme> (see
+              .moon-dark / .moon-light) rather than reading `theme` here — that
+              state starts at "dark" and only catches up after hydration, which
+              would flash the wrong moon on a light-theme load. The hidden one
+              is lazy and display:none, so its file is never fetched. */}
           <div className="corner-moon" aria-hidden="true">
-            <Image src={CORNER_MOON} alt="" fill sizes="52vw" quality={82} />
+            <span className="moon-dark">
+              <Image src={CORNER_MOON} alt="" fill sizes="52vw" quality={82} />
+            </span>
+            <span className="moon-light">
+              <Image src={CORNER_MOON_LIGHT} alt="" fill sizes="52vw" quality={82} />
+            </span>
           </div>
         </section>
       </main>
@@ -497,11 +513,25 @@ export default function Home() {
         }
         .corner-moon :global(img) {
           object-fit: contain;
-          /* The box hangs off the right edge, so only its left ~45% is on
-             screen — and a waxing gibbous, as photographed from the north, is
-             lit on the right, which is exactly the half that would be off
-             screen. Turned 180° it is the same real phase seen from the south
-             (lit on the left), so the lit face is the part that shows. */
+        }
+        .moon-dark,
+        .moon-light {
+          position: absolute;
+          inset: 0;
+        }
+        /* Dark is the default; light swaps it out. Keyed off <html
+           data-theme> directly so it is right from first paint. */
+        .moon-light { display: none; }
+        :global(:root[data-theme="light"]) .moon-dark { display: none; }
+        :global(:root[data-theme="light"]) .moon-light { display: block; }
+
+        /* The box hangs off the right edge, so only its left ~45% is on
+           screen — and a waxing gibbous, as photographed from the north, is
+           lit on the right, which is exactly the half that would be off
+           screen. Turned 180° it is the same real phase seen from the south
+           (lit on the left), so the lit face is the part that shows. Only
+           the dark moon: the blue one is a full disc, lit all over. */
+        .moon-dark :global(img) {
           transform: rotate(180deg);
         }
 
