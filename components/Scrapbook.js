@@ -15,11 +15,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "../lib/useLanguage";
 
-// The two quilts in the cloth spread — the same files the gallery's artwork tab
-// ends on. Where each one sits is in the .q1/.q2 rules below.
+// The three quilts in the cloth spread — the same files the gallery's artwork tab
+// ends on. Where each one sits is in the .q1/.q2/.q3 rules below.
 const QUILTS = [
   { cls: "q1", src: "/images/cloth/Saba Lou Quilt 1.jpg", width: 3472, height: 4624 },
-  { cls: "q2", src: "/images/cloth/Saba Lou Quilt 2.jpg", width: 4624, height: 3472 },
+  { cls: "q2", src: "/images/cloth/Saba Lou Quilt 2.jpg", width: 3701, height: 3472 },
+  { cls: "q3", src: "/images/cloth/Saba Lou Quilt 3.jpg", width: 3452, height: 3400 },
 ];
 
 // A picture shown through a window into its file, for the scans that carry an
@@ -401,11 +402,12 @@ export default function Scrapbook() {
           .swatches {
             position: relative;
             grid-column: 6 / span 7;
-            aspect-ratio: 100 / 56;
+            aspect-ratio: 100 / 60;
           }
           .swatches .sw { position: absolute; }
-          .q1 { left: 4%; top: 0; width: 38%; }
-          .q2 { left: 40%; top: 20%; width: 56%; }
+          .q1 { left: 2%; top: 0; width: 32%; }
+          .q2 { left: 66%; top: 0; width: 32%; }
+          .q3 { left: 31%; top: 20%; width: 38%; }
 
           .paint .works { grid-column: 1 / span 7; grid-row: 1; }
           /* hung from the same line the second column of works is, so the
@@ -464,11 +466,12 @@ export default function Scrapbook() {
             grid-column: 1 / -1;
             grid-row: 2;
             margin-top: 1.8rem;
-            aspect-ratio: 100 / 66;
+            aspect-ratio: 100 / 84;
           }
           .swatches .sw { position: absolute; }
-          .q1 { left: 0; top: 0; width: 46%; }
-          .q2 { left: 42%; top: 24%; width: 58%; }
+          .q1 { left: 0; top: 0; width: 40%; }
+          .q2 { left: 60%; top: 0; width: 40%; }
+          .q3 { left: 28%; top: 38%; width: 44%; }
           .paint .works { grid-column: 1 / -1; grid-row: 2; margin-top: 1.8rem; }
         }
       `}</style>
