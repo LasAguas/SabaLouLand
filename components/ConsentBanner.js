@@ -10,6 +10,7 @@
 // ransom note.
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { pixelPageview } from "../lib/metaPixel";
 import { declineConsent, getConsent, grantConsent } from "../lib/tracker";
 import { useLanguage } from "../lib/useLanguage";
 
@@ -47,6 +48,7 @@ export default function ConsentBanner() {
           type="button"
           onClick={() => {
             grantConsent();
+            pixelPageview(window.location.pathname); // the current page, now that it's allowed
             setShow(false);
           }}
         >
