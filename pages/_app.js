@@ -5,6 +5,7 @@ import localFont from "next/font/local";
 import { Patrick_Hand } from "next/font/google";
 import ConsentBanner from "../components/ConsentBanner";
 import { isGatedPath } from "../lib/nfc";
+import { pixelPageview } from "../lib/metaPixel";
 import { startTracker, trackPageview } from "../lib/tracker";
 import { LanguageProvider } from "../lib/useLanguage";
 import { ThemeProvider } from "../lib/useTheme";
@@ -56,7 +57,12 @@ export default function App({ Component, pageProps }) {
   // recorded as a single pageview of the entry page.
   useEffect(() => {
     startTracker(window.location.pathname);
-    const onRoute = (url) => trackPageview(url.split("?")[0]);
+    pixelPageview(window.location.pathname);
+    const onRoute = (url) => {
+      const path = url.split("?")[0];
+      trackPageview(path);
+      pixelPageview(path);
+    };
     router.events.on("routeChangeComplete", onRoute);
     return () => router.events.off("routeChangeComplete", onRoute);
   }, [router.events]);
