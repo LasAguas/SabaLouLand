@@ -480,6 +480,7 @@ export default function Storefront({ shelf, onShelfChange }) {
                       </span>
 
                       <h3>{p.name}</h3>
+                      {p.description && <p className="desc">{p.description}</p>}
                       <p className="price">
                         <strong>{euro(activePrice)}</strong>
                         {!zones.length && p.shipping_cents > 0 && (
@@ -985,6 +986,13 @@ export default function Storefront({ shelf, onShelfChange }) {
           font-weight: 400;
           font-size: 1.02em;
           line-height: 1.15;
+        }
+        .desc {
+          margin: 0 0 0.4rem;
+          font-size: 0.86em;
+          line-height: 1.4;
+          color: var(--chip-ink);
+          opacity: 0.8;
         }
         .price {
           margin: 0 0 0.5rem;
