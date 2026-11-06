@@ -2,10 +2,16 @@
 // goods on the right, the basket underneath it and the receipt you land on
 // after paying. Built to the `las-aguas-webstore` skill's contract.
 //
-// Three calls, all to the dashboard's public, CORS-open, credential-free API:
+// Four calls, all to the dashboard's public, CORS-open, credential-free API:
 //   on load     GET  /api/store-public/resolve?slug=…  → products + live stock
+//   on basket change POST /api/store-public/quote      → shipping prices for this basket
 //   on checkout POST /api/store-public/checkout        → { url } → off to Stripe
 //   on return   POST /api/store-public/confirm         → the receipt
+//
+// Shipping is never added up on this page. The dashboard works it out from the
+// whole basket (in "packed" mode each item ships from the shelf that has it and
+// each parcel is priced by size), so every basket change asks /quote and the
+// page only shows what comes back.
 //
 // Stripe Checkout collects the card, the email AND the shipping address, so
 // there is deliberately no address form here — see the skill's gotchas.
@@ -69,10 +75,23 @@ const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "
 function loadCart() {
   try {
     const raw = JSON.parse(localStorage.getItem(CART_KEY));
-    return Array.isArray(raw) ? raw : [];
+    return Array.isArray(raw) ? raw.filter((l) => l && typeof l === "object") : [];
   } catch {
     return [];
   }
+}
+
+// A basket line is live when its product still exists and its option still
+// matches: a product with options needs a known option name, a product
+// without options must not carry one. Anything else is left over from an
+// older catalogue (a renamed option, a deleted product) and gets dropped
+// before it is quoted, counted or sent to checkout.
+function liveLines(cart, products) {
+  return cart.filter((l) => {
+    const p = products.find((x) => x.id === l.productId);
+    if (!p || !Number.isInteger(l.qty) || l.qty < 1) return false;
+    return p.has_variants ? !!p.variants?.some((v) => v.name === l.variant) : !l.variant;
+  });
 }
 
 // `shelf` / `onShelfChange`: which shelf is open is owned by the page (see
@@ -96,12 +115,24 @@ export default function Storefront({ shelf, onShelfChange }) {
   const [leaving, setLeaving] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [showBasket, setShowBasket] = useState(false);
-  // Named shipping zones (e.g. Germany / EU / Worldwide). The dashboard prices
-  // each per product (product.shipping_option_prices[zoneId]); when the store
-  // has any, the buyer must pick one before checkout and flat shipping_cents
-  // no longer applies.
+  // Named shipping zones from resolve (e.g. Germany / EU / Worldwide). When the
+  // store has any, a basket with something physical in it needs one picked
+  // before checkout. Their prices are not here, they come from /quote for the
+  // basket as it stands. `zone` is the pick; it only counts while the latest
+  // quote still lists it as an option that can take the basket.
   const [zones, setZones] = useState([]);
   const [zone, setZone] = useState("");
+  // "classic" or "packed", straight from resolve. Only used to hide the
+  // per-product shipping hint on the cards once the store is in packed mode.
+  const [shippingMode, setShippingMode] = useState("classic");
+  // true once resolve has answered, so the basket is not judged against an
+  // empty catalogue while it is still loading
+  const [catalogReady, setCatalogReady] = useState(false);
+  // The latest answer from /quote. `key` says which basket and which request
+  // it was for, so an answer for an older basket is never shown for a newer one.
+  const [quote, setQuote] = useState({ key: "", status: "idle", options: [], subtotalCents: null });
+  // bumped to ask again for the same basket (retry button, failed checkout)
+  const [quoteNonce, setQuoteNonce] = useState(0);
 
   // Escape closes the cart modal, same as the backdrop or the × does.
   useEffect(() => {
@@ -132,6 +163,8 @@ export default function Storefront({ shelf, onShelfChange }) {
       );
       setAvailability(data.availability || {});
       setZones(Array.isArray(data.shippingOptions) ? data.shippingOptions : []);
+      setShippingMode(data.shippingMode === "packed" ? "packed" : "classic");
+      setCatalogReady(true);
       setStatus("open");
     } catch {
       setStatus("closed");
@@ -200,18 +233,115 @@ export default function Storefront({ shelf, onShelfChange }) {
     if (!pre) return "";
     return fill(isDigitalLine(p, variantName) ? s.preorderEmailed : s.preorderShips, { date: fmtDate(pre.ships_on) });
   };
+  // The basket as everything below sees it: stale lines already dropped. Until
+  // resolve has answered there is no catalogue to judge them by, so the saved
+  // basket is used as it is and nothing is quoted yet.
+  const lines = catalogReady ? liveLines(cart, products) : cart;
   // Digital lines never ship, so they never need a zone and cost nothing to ship.
-  const cartNeedsShipping = cart.some((l) => {
+  const cartNeedsShipping = lines.some((l) => {
     const p = products.find((x) => x.id === l.productId);
     return p && !isDigitalLine(p, l.variant);
   });
-  const zoneCost = (zoneId) =>
-    cart.reduce((sum, l) => {
-      const p = products.find((x) => x.id === l.productId);
-      if (!p || isDigitalLine(p, l.variant)) return sum;
-      return sum + (parseInt(p.shipping_option_prices?.[zoneId], 10) || 0) * l.qty;
-    }, 0);
   const needsZone = zones.length > 0 && cartNeedsShipping;
+
+  // ---- shipping prices, from /quote ----------------------------------------
+  // Keyed on what is in the basket and on the retry counter, so the answer on
+  // screen can be checked against the basket on screen.
+  const itemsKey = JSON.stringify(
+    lines.map((l) => ({ productId: l.productId, variant: l.variant || undefined, qty: l.qty }))
+  );
+  const reqKey = `${quoteNonce}|${itemsKey}`;
+  // "idle" (empty basket), "loading" (a newer basket than the last answer, or
+  // the catalogue is still coming), "ready" or "error". Checkout only opens on
+  // "ready", so the old basket's price never sits next to the new basket.
+  const quoteState = !lines.length
+    ? "idle"
+    : !catalogReady || quote.key !== reqKey
+      ? "loading"
+      : quote.status;
+  const quoted = quoteState === "ready";
+
+  // Ask again whenever the basket changes, after a quiet 250 ms so a run of
+  // quantity clicks makes one call. Cleanup drops the timer and aborts the
+  // request, and `current` makes sure a late answer for an old basket is
+  // ignored. An empty basket makes no call.
+  useEffect(() => {
+    if (!catalogReady) return;
+    const items = JSON.parse(itemsKey);
+    if (!items.length) return;
+    const key = `${quoteNonce}|${itemsKey}`;
+    const ctrl = new AbortController();
+    let current = true;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/store-public/quote`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: SLUG, items }),
+          signal: ctrl.signal,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!current) return;
+        if (!res.ok || !Array.isArray(data.options)) {
+          setQuote({ key, status: "error", options: [], subtotalCents: null });
+          return;
+        }
+        setQuote({
+          key,
+          status: "ready",
+          options: data.options,
+          subtotalCents: Number.isFinite(data.subtotalCents) ? data.subtotalCents : null,
+        });
+      } catch {
+        if (current) setQuote({ key, status: "error", options: [], subtotalCents: null });
+      }
+    }, 250);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [catalogReady, itemsKey, quoteNonce]);
+
+  // Which option the buyer is on. An id the quote does not list (stale after a
+  // zone change) is simply not picked. null price means the option cannot take
+  // this basket, 0 is a real free option, so test for null and nothing else.
+  const pickedOpt = quoted && needsZone ? quote.options.find((o) => o.id === zone) || null : null;
+  // a store without named zones answers with one option whose id is null
+  const flatOpt =
+    quoted && !needsZone && cartNeedsShipping ? quote.options.find((o) => o.id == null) || null : null;
+  const shipOpt = needsZone ? pickedOpt : flatOpt;
+  // what shipping costs for this basket: 0 with nothing physical in it, null
+  // while nothing priceable has been picked yet
+  const shippingCents = !cartNeedsShipping
+    ? 0
+    : shipOpt && shipOpt.price_cents != null
+      ? shipOpt.price_cents
+      : null;
+  const shipFailed =
+    quoteState === "error" || (quoted && !needsZone && cartNeedsShipping && shippingCents === null);
+  const canPay = quoted && !shipFailed && shippingCents !== null && !leaving;
+
+  // drop lines the catalogue no longer has, for good (state and localStorage)
+  useEffect(() => {
+    if (!catalogReady) return;
+    const live = liveLines(cart, products);
+    if (live.length !== cart.length) updateCart(live);
+  }, [catalogReady, cart, products]);
+
+  // a pick the latest quote no longer lists, or now prices as null, is cleared
+  useEffect(() => {
+    if (needsZone && quoted && zone && !(pickedOpt && pickedOpt.price_cents != null)) setZone("");
+  }, [needsZone, quoted, zone, pickedOpt]);
+
+  // one line of the picker: label, price (or free), and a parcel count when the
+  // basket splits
+  const optionLabel = (o) => {
+    if (o.price_cents == null) return `${o.label} · ${s.unavailable}`;
+    const parts = [o.label, o.price_cents === 0 ? s.free : euro(o.price_cents)];
+    if (o.parcels?.length > 1) parts.push(fill(s.parcels, { n: o.parcels.length }));
+    return parts.join(" · ");
+  };
 
   function addToCart(p) {
     const pick = picks[p.id] || {};
@@ -231,11 +361,9 @@ export default function Storefront({ shelf, onShelfChange }) {
   }
 
   async function checkout() {
-    if (!cart.length || leaving) return;
-    if (needsZone && !zones.some((z) => z.id === zone)) {
-      setMsg(s.pickZone);
-      return;
-    }
+    // the button is disabled until the quote is in and a priceable option is
+    // picked; this is the same test for anything that gets past it
+    if (!canPay) return;
     setLeaving(true);
     setMsg("");
     try {
@@ -244,22 +372,27 @@ export default function Storefront({ shelf, onShelfChange }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           slug: SLUG,
-          items: cart.map((l) => ({
+          items: lines.map((l) => ({
             productId: l.productId,
             variant: l.variant || undefined,
             qty: l.qty,
           })),
-          shippingOptionId: needsZone ? zone : undefined,
+          shippingOptionId: needsZone ? pickedOpt.id : undefined,
           newsletterOptIn: optIn,
           returnUrl: window.location.origin + window.location.pathname,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // 409 = somebody bought the last one between page load and now. Show
-        // it where it happened and refresh the stock underneath.
-        setMsg(data.error || s.error);
+        // Show the server's message where it happened (409: the stock or the
+        // shipping price moved, sometimes with code "requote"; 400 and 503 get
+        // their message too), then refresh the catalogue and ask /quote again.
+        // Checkout stays off until the new answer is in, so the buyer sees the
+        // new price before trying again.
+        const text = data.error || s.error;
+        setMsg(res.status === 409 ? `${text} ${s.repriced}` : text);
         setLeaving(false);
+        setQuoteNonce((n) => n + 1);
         load();
         return;
       }
@@ -276,16 +409,18 @@ export default function Storefront({ shelf, onShelfChange }) {
   const safePage = Math.min(page, pages - 1);
   const shown = onShelf.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
-  const total = cart.reduce((sum, l) => {
+  // Items only. The quote's own subtotal is the one the server will charge, so
+  // it wins when it is there; the sum below is just the fallback. Shipping is
+  // never part of this sum.
+  const localSubtotal = lines.reduce((sum, l) => {
     const p = products.find((x) => x.id === l.productId);
     if (!p) return sum;
     // the line's own variant may be priced differently from the product's
-    // base price_cents — same lookup the card display uses
+    // base price_cents, same lookup the card display uses
     const unitPrice = p.variants?.find((v) => v.name === l.variant)?.price_cents ?? p.price_cents;
-    // flat per-unit shipping only on a store without named zones; with zones
-    // the chosen zone's price is added once below
-    return sum + (unitPrice + (zones.length ? 0 : p.shipping_cents || 0)) * l.qty;
-  }, 0) + (needsZone && zone ? zoneCost(zone) : 0);
+    return sum + unitPrice * l.qty;
+  }, 0);
+  const subtotal = quoted && quote.subtotalCents != null ? quote.subtotalCents : localSubtotal;
 
   function pickShelf(key) {
     onShelfChange(key);
@@ -326,9 +461,9 @@ export default function Storefront({ shelf, onShelfChange }) {
           aria-haspopup="dialog"
         >
           {s.basketBtn}
-          {cart.length > 0 && (
+          {lines.length > 0 && (
             <span className="count" aria-hidden="true">
-              {cart.reduce((n, l) => n + l.qty, 0)}
+              {lines.reduce((n, l) => n + l.qty, 0)}
             </span>
           )}
         </button>
@@ -483,7 +618,7 @@ export default function Storefront({ shelf, onShelfChange }) {
                       {p.description && <p className="desc">{p.description}</p>}
                       <p className="price">
                         <strong>{euro(activePrice)}</strong>
-                        {!zones.length && p.shipping_cents > 0 && (
+                        {!zones.length && shippingMode !== "packed" && p.shipping_cents > 0 && (
                           <small>
                             {" "}
                             + {euro(p.shipping_cents)} {s.shipping}
@@ -645,12 +780,12 @@ export default function Storefront({ shelf, onShelfChange }) {
               </p>
             )}
 
-            {cart.length === 0 ? (
+            {lines.length === 0 ? (
               <p className="cart-empty">{s.basketEmpty}</p>
             ) : (
               <>
                 <ul className="lines">
-                  {cart.map((l, i) => {
+                  {lines.map((l, i) => {
                     const p = products.find((x) => x.id === l.productId);
                     if (!p) return null;
                     return (
@@ -668,26 +803,64 @@ export default function Storefront({ shelf, onShelfChange }) {
                   })}
                 </ul>
 
-                {needsZone && (
-                  <label className="optin zone">
-                    <span>{s.shipTo}</span>
-                    <select value={zone} onChange={(e) => setZone(e.target.value)}>
-                      <option value="" disabled>
-                        {s.chooseZone}
-                      </option>
-                      {zones.map((z) => (
-                        <option key={z.id} value={z.id}>
-                          {z.label} · {euro(zoneCost(z.id))}
+                {/* shipping: loading, failed, or the picker. Each option's
+                    price comes from the quote, never from the products. */}
+                {quoteState === "loading" && cartNeedsShipping && (
+                  <p className="ship-state" role="status">
+                    {s.shipPricing}
+                  </p>
+                )}
+                {shipFailed && (
+                  <p className="cart-msg" role="alert">
+                    {flatOpt?.message || s.shipError}{" "}
+                    <button type="button" className="retry" onClick={() => setQuoteNonce((n) => n + 1)}>
+                      {s.retry}
+                    </button>
+                  </p>
+                )}
+                {needsZone && quoted && (
+                  <>
+                    <label className="optin zone">
+                      <span>{s.shipTo}</span>
+                      <select
+                        value={pickedOpt && pickedOpt.price_cents != null ? zone : ""}
+                        onChange={(e) => setZone(e.target.value)}
+                      >
+                        <option value="" disabled>
+                          {s.chooseZone}
                         </option>
-                      ))}
-                    </select>
-                  </label>
+                        {quote.options.map((o) => (
+                          <option key={o.id} value={o.id} disabled={o.price_cents == null}>
+                            {optionLabel(o)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {quote.options.some((o) => o.price_cents == null) && (
+                      <ul className="zone-notes">
+                        {quote.options
+                          .filter((o) => o.price_cents == null)
+                          .map((o) => (
+                            <li key={o.id}>{o.message || fill(s.zoneNo, { zone: o.label })}</li>
+                          ))}
+                      </ul>
+                    )}
+                    {shippingCents === null && <p className="zone-notes">{s.pickZone}</p>}
+                  </>
                 )}
 
-                <p className="sum">
-                  {s.total} <strong>{euro(total)}</strong>{" "}
-                  <small>{s.inclShipping}</small>
-                </p>
+                {!shipFailed && (
+                  <p className="sum">
+                    {s.total}{" "}
+                    <strong>{quoted ? euro(subtotal + (shippingCents || 0)) : "…"}</strong>
+                    {quoted && cartNeedsShipping && (
+                      <>
+                        {" "}
+                        <small>{shippingCents === null ? s.plusShipping : s.inclShipping}</small>
+                      </>
+                    )}
+                  </p>
+                )}
 
                 <label className="optin">
                   <input
@@ -703,7 +876,7 @@ export default function Storefront({ shelf, onShelfChange }) {
                     type="button"
                     className="pay"
                     onClick={checkout}
-                    disabled={leaving}
+                    disabled={!canPay}
                     data-track-type="merch"
                     data-track-label="checkout"
                     data-track-category="merch"
@@ -1164,6 +1337,27 @@ export default function Storefront({ shelf, onShelfChange }) {
           border-radius: 5px 7px 4px 6px / 6px 4px 7px 5px;
           padding: 0.22rem 0.35rem;
           font-size: 1em;
+        }
+
+        /* the lines under the picker (why an option is greyed out, or what to
+           do next), and the quiet "working it out" line while a quote loads */
+        .zone-notes {
+          list-style: none;
+          margin: -0.5rem 0 1rem;
+          padding: 0;
+          font-size: 0.8em;
+          line-height: 1.4;
+          opacity: 0.8;
+        }
+        .ship-state { margin: 0 0 1rem; font-size: 0.88em; opacity: 0.75; }
+        .retry {
+          background: none;
+          border: 0;
+          padding: 0;
+          font: inherit;
+          color: inherit;
+          text-decoration: underline;
+          cursor: pointer;
         }
 
         .acts { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
