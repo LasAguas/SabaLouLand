@@ -91,6 +91,15 @@ html, body {
   background: var(--deep);
   color: var(--ink);
   overflow-x: clip;
+  /* The seed cursor. Kept at 32x32 on purpose: Chromium and Firefox refuse
+     custom cursors bigger than that whenever the image would overlap the
+     browser's own UI (tab bar, window edge), and stricter privacy browsers
+     can drop them outright — at 35px it was falling back to the arrow. Set on
+     html as well as body so the strip below a short page gets it too; links,
+     buttons and inputs still use the browser's own pointer / text cursors.
+     "4 2" is the hotspot (the seed's tip). The trailing `auto` is required —
+     without a keyword fallback the whole declaration is invalid. */
+  cursor: url("/images/saba-lou-cursor-32.png") 4 2, auto;
 }
 
 body {
@@ -98,7 +107,6 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  cursor: url("/images/saba-lou-cursor.png") 4 2, auto;
 }
 
 a {
