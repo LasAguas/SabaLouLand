@@ -63,6 +63,10 @@ const LEAN = [-4, 2, -1.5, 3.5, -2.5, 4, -3, 0, 2.5, -1.5, 3];
 // per-letter tightening (em, applied as negative margin-left) — the font's
 // own side bearings leave A-L, L-O, O-U and U-L visibly looser than the rest.
 const KERN = [0, 0, 0, -0.02, -0.02, -0.11, -0.04, -0.04, 0, 0, 0];
+// The rise is emitted as a bare number of "arc units" (1 unit = 1vh on wide
+// screens); .title's --arc-unit in the CSS says how big a unit is. On a phone
+// it is width-based instead, so the arch is the same shape on every handset
+// rather than deepening on tall ones.
 const ARC_RADIUS_VH = 30; // 60vh diameter
 const ARC_THETA_MAX_DEG = 32; // how far around the rim the outer letters sit
 const ARC_CENTER = (TITLE.length - 1) / 2;
@@ -126,7 +130,7 @@ export default function Home() {
                         key={i}
                         aria-hidden="true"
                         className="ch"
-                        style={{ "--lean": `${lean}deg`, "--rise": `${arcRiseVh.toFixed(3)}vh`, marginLeft: `${KERN[i] || 0}em` }}
+                        style={{ "--lean": `${lean}deg`, "--rise": arcRiseVh.toFixed(3), marginLeft: `${KERN[i] || 0}em` }}
                       >
                         {ch}
                       </span>
@@ -304,10 +308,11 @@ export default function Home() {
           display: flex;
           flex-wrap: nowrap;
           justify-content: center;
+          --arc-unit: 1vh;
         }
         .ch {
           display: inline-block;
-          transform: rotate(var(--lean)) translateY(var(--rise));
+          transform: rotate(var(--lean)) translateY(calc(var(--rise) * var(--arc-unit)));
           transform-origin: center bottom;
         }
         .logo :global(img) {
@@ -551,6 +556,13 @@ export default function Home() {
           }
           .bio p:nth-of-type(2) { margin-left: 0; }
         }
+        /* Down there it sits on --hero-foot, which is near-black in the dark
+           theme (cream reads) but near-paper in the light one (cream vanishes).
+           So light takes the page's dark ink instead. Dark is left on
+           --on-hero exactly as it was. */
+        @media (max-width: 1259px) {
+          :global(:root[data-theme="light"]) .bio p { color: var(--ink); }
+        }
 
         /* Tablet band only. Below 861px .mid becomes a flex column and the
            greeting is already last, so it reaches the foot on its own — and
@@ -562,34 +574,82 @@ export default function Home() {
 
         /* ============ narrow ====================================== */
         @media (max-width: 860px) {
-          /* Give the hero the image's own 9:16 so the whole thing shows: blue
-             on top, and below it the black the image fades into — which is
-             where the greeting goes. */
-          .hero { min-height: calc(100vw * 16 / 9); }
-          .chrome { gap: 1.2rem; padding-bottom: clamp(1.5rem, 6vw, 3rem); }
+          /* Everything on the phone layout is pinned to the PAINTING, not to
+             the screen or to how much text there is. The one unit is --u, 1%
+             of the hero's own width; the painting is a 9:16 stage exactly
+             100u wide and 177.78u tall (the .plate below), so a thing placed
+             at N u sits on the same spot of the painting on every handset.
+
+             It used to be the opposite: the logo's drop was 20vh (screen
+             height) and the nav was bottom-aligned to the greeting (text
+             height), so on a short or narrow phone the nav landed on the
+             figure and on a wide one it floated far below the painting.
+
+             1cqw = 1% of the hero's width, scrollbar-proof; 1vw is the
+             fallback for a browser without container units (see the foot of
+             this block). */
+          .hero {
+            container-type: inline-size;
+            --u: 1cqw;
+            min-height: 0;
+          }
+          /* The painting at its own 9:16, from the top. If the greeting runs
+             longer than that the hero just grows below it — onto bare
+             --hero-foot, which is the colour the image's baked-in fade ends
+             on, so there is no seam. */
+          .plate { inset: 0 0 auto 0; aspect-ratio: 9 / 16; }
+          /* the crown's 34% was of the hero's height; now of the painting's */
+          .crown { height: calc(var(--u) * 60.4); }
+
+          .chrome {
+            gap: 0;
+            /* no top padding: .top below starts at the painting's own top and
+               the corner panels carry the inset themselves */
+            padding-top: 0;
+            padding-bottom: clamp(1.5rem, 6vw, 3rem);
+            min-height: calc(var(--u) * 177.78);
+          }
+
           .top {
             grid-template-columns: auto 1fr auto;
             grid-template-areas: "l c r";
             align-items: start;
             column-gap: 0.6rem;
+            /* Where the nav starts: 108u down — just under the roofline, in
+               the dark. */
+            height: calc(var(--u) * 108);
           }
+          .top-l, .top-r { margin-top: clamp(1.1rem, 2.6vw, 2.4rem); }
           .top-l { grid-area: l; }
           .top-r { grid-area: r; }
-          .top-c { grid-area: c; justify-self: center; margin-top: 20vh; }
+          /* Title + logo hang from the sky, the logo's foot resting at 57u —
+             clear above the figure's head (~62u). Anchored by its bottom
+             edge, so the one thing that must not touch the figure is the one
+             thing that never moves relative to it. Out of the grid so it
+             can't push the nav. */
+          .top-c {
+            position: absolute;
+            left: 50%;
+            top: calc(var(--u) * 57);
+            width: max-content;
+            margin: 0;
+            transform: translate(-50%, -100%);
+          }
+          .title { --arc-unit: calc(var(--u) * 1.75); }
 
           .mid {
             grid-template-columns: 1fr;
             display: flex;
             flex-direction: column;
-            /* the gap between nav and greeting — the two are the only items */
-            gap: 5vh;
+            /* nav → greeting */
+            gap: clamp(1.5rem, calc(var(--u) * 8), 4rem);
             margin-top: 0;
           }
-          /* Nav and greeting travel together at the foot of the hero: the auto
-             margin on the nav (visually first) soaks up the slack above the
-             pair, so the nav lands 10vh above the greeting rather than sitting
-             way up under the title with a void between them. */
-          .mid-r { order: -1; align-self: center; margin: auto 0 0; }
+          /* Nav first, then the greeting flowing on below it. Nothing is
+             bottom-anchored any more: the nav's position is set by .top's
+             height above, and a longer translation only makes the greeting
+             (and the hero) taller. */
+          .mid-r { order: -1; align-self: center; margin: 0; }
           .mid-l { margin: 0 0 0.5rem; }
 
           .deep-in { grid-template-columns: 1fr; gap: 3rem; }
@@ -616,6 +676,12 @@ export default function Home() {
 
         @media (max-width: 520px) {
           .title { font-size: clamp(1.7rem, 8.6vw, 2.6rem); }
+        }
+
+        /* No container units (pre-2022 browsers): fall back to viewport
+           width. Last, so it wins over the --u set in the narrow block. */
+        @supports not (width: 1cqw) {
+          .hero { --u: 1vw; }
         }
       `}</style>
     </>
