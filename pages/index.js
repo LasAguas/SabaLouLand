@@ -375,9 +375,9 @@ export default function Home() {
            ends a little shorter than the one above while the left edge stays
            put. shape-outside needs a real float to hang off, hence ::before
            rather than a clip — a clip would cut the glyphs instead of moving
-           them. Only above 1259px: narrower than that the block leaves the sky
+           them. Only from 1450px up: narrower than that the block leaves the sky
            entirely and sits under the blue, where a taper has nothing to dodge. */
-        @media (min-width: 1260px) {
+        @media (min-width: 1450px) {
           .bio p:nth-of-type(2)::before {
             content: "";
             float: right;
@@ -394,6 +394,20 @@ export default function Home() {
             shape-outside: polygon(100% 0, 100% 100%, 0 100%);
             shape-margin: 0.45em;
           }
+        }
+
+        /* Mid-wide band, 1450–1644px. The crop pulls the figure's elbow left
+           faster than the text block moves, so at the full-width settings
+           above the foot of the second paragraph runs into the arm. Two
+           changes, both only here: the whole block rides higher (the sky
+           above it is empty down to the language selector), and the taper is
+           deeper, so the diagonal cuts in further to the left and the last
+           lines stop well short of the figure. Above 1644px the base
+           settings are untouched; below 1450px the greeting leaves the sky
+           altogether (see "below the blue"). */
+        @media (min-width: 1450px) and (max-width: 1644px) {
+          .mid-l { margin-top: -2.5rem; }
+          .bio p:nth-of-type(2)::before { width: 58%; }
         }
 
         /* ============ deep ======================================== */
@@ -543,11 +557,11 @@ export default function Home() {
         /* ============ below the blue ==============================
            The greeting only sits ON the painting while the viewport is wide
            enough for the crop to leave a clear patch of sky beside the figure.
-           Below 1260px it drops out of the sky and onto the dark the image
+           Below 1450px it drops out of the sky and onto the dark the image
            fades into at the foot of the hero — the same place it lands on a
            phone — so it takes the cream the rest of the lower page uses.
            ========================================================== */
-        @media (max-width: 1259px) {
+        @media (max-width: 1449px) {
           .bio { max-width: none; }
           .bio p {
             color: var(--on-hero);
@@ -560,7 +574,7 @@ export default function Home() {
            theme (cream reads) but near-paper in the light one (cream vanishes).
            So light takes the page's dark ink instead. Dark is left on
            --on-hero exactly as it was. */
-        @media (max-width: 1259px) {
+        @media (max-width: 1449px) {
           :global(:root[data-theme="light"]) .bio p { color: var(--ink); }
         }
 
@@ -568,7 +582,7 @@ export default function Home() {
            greeting is already last, so it reaches the foot on its own — and
            align-self there would push it sideways instead of down, since the
            cross axis has turned horizontal. */
-        @media (min-width: 861px) and (max-width: 1259px) {
+        @media (min-width: 861px) and (max-width: 1449px) {
           .mid-l { align-self: end; margin-top: 0; }
         }
 
