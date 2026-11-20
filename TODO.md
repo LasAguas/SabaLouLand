@@ -102,16 +102,26 @@ Once both are done, run the skill's end-to-end check: buy the cheapest item with
 a real card (the platform runs live Stripe keys), confirm the receipt panel,
 the receipt email and the order in Admin -> Webstore -> Orders, then refund it.
 
-### 4. `/impressum` and a privacy page
+### 4. ~~`/impressum` and a privacy page~~ — DONE, a few things to confirm
 
-Now linked from **three** places: the footer, the newsletter's data notice, and
-the cookie banner. All three 404 today, and the newsletter notice is deliberately
-short *because* it hands off to that page — so the short version isn't legally
-sufficient on its own until the page exists.
+Both exist (2026-11-20). `/impressum`: Saba Lou Khan, represented by Las Aguas
+Productions; Las Aguas UG (haftungsbeschränkt), Sebastian Sheath,
+Conrad-Blenkle-Str. 29, 10407 Berlin; Amtsgericht Charlottenburg, HRB 280834 B;
+Steuernummer; contact@lasaguasproductions.com. Names and numbers are `IMPRESSUM`
+in `lib/content.js`. `/privacy`: adapted from silveromen.com/privacy and checked
+against this site's own code; the text is `PRIVACY_EN` in `lib/content.js`. The
+footer links both; the cookie banner and the newsletter notice now go to
+`/privacy`.
 
-I need your real details: full name, postal address, contact address, and VAT id
-if you have one. The tracking notes also call for a privacy policy page covering
-what's collected; I'd put both on `/impressum` unless you'd rather split them.
+**To confirm:**
+- § 5 DDG asks for the **USt-IdNr** (VAT id), not the Steuernummer. Add the
+  USt-IdNr if the UG has one; the Steuernummer isn't required and could go.
+- The privacy page is **English only** for now (German and Spanish show it
+  under their own titles). A German-language version matters most.
+- It names "a location-lookup service" (the track-event function's ipwho.is
+  fallback, see blocker 1). Check that is still how the function resolves country
+  and city.
+- It was drafted from a sibling site's policy, not by a lawyer.
 
 ---
 

@@ -2,6 +2,7 @@
   "title": "Nothing But Love",
   "songs": [
     { "side": "A", "slug": "she", "title": "She", "audio": "she.m4a" },
+    { "side": "A", "slug": "uv-catastrophe", "title": "UV Catastrophe", "audio": "uv-catastrophe.m4a" },
     { "side": "A", "slug": "my-umami", "title": "My Umami", "audio": "my-umami.m4a" },
     { "side": "A", "slug": "until-the-cherries-bloom-again", "title": "Until the Cherries Bloom Again", "audio": "until-the-cherries-bloom-again.m4a" },
     { "side": "A", "slug": "blissfully-still", "title": "Blissfully Still", "audio": "blissfully-still.m4a" },

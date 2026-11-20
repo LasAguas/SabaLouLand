@@ -87,7 +87,7 @@ export default function Home() {
         <title>Sabalouland</title>
         <meta
           name="description"
-          content="Sabalouland — portraits, musick, dreamscapes and comics from Saba Lou, an independent multimedia artist in Berlin."
+          content="Sabalouland — portraits, musick, dreamscapes and comics from Saba Lou, an independent multimedia artist in Berlin. Her new album, Nothing But Love, is out now."
         />
         <meta property="og:title" content="Sabalouland" />
         <meta property="og:type" content="website" />

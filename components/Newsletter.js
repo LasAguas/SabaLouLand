@@ -181,7 +181,7 @@ export default function Newsletter() {
           {/* GDPR Art. 13 allows layering: the essentials here, the rest one
               click away. Keep the link — this line alone isn't sufficient. */}
           <p className="notice">
-            {n.notice} <Link href="/impressum">{n.noticeLink}</Link>
+            {n.notice} <Link href="/privacy">{n.noticeLink}</Link>
           </p>
 
           <button type="submit" disabled={off}>

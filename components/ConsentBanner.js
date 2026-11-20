@@ -31,7 +31,7 @@ export default function ConsentBanner() {
     <div className="bar" role="region" aria-label={c.label}>
       <p>
         {c.body}{" "}
-        <Link href="/impressum">{c.more}</Link>
+        <Link href="/privacy">{c.more}</Link>
       </p>
       <div className="acts">
         <button

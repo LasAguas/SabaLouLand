@@ -727,7 +727,6 @@ export default function Storefront({ shelf, onShelfChange }) {
                 <p className="cta-prompt">{s.musicCta.prompt}</p>
                 <div className="cta-links">
                   <Link href="/book" className="cta-link">{s.musicCta.book}</Link>
-                  <span className="cta-link pending">{s.musicCta.shows}</span>
                 </div>
               </div>
             )}
@@ -741,7 +740,6 @@ export default function Storefront({ shelf, onShelfChange }) {
                 <p className="cta-prompt">{s.printsCta.prompt}</p>
                 <div className="cta-links">
                   <Link href="/book" className="cta-link">{s.printsCta.portrait}</Link>
-                  <span className="cta-link pending">{s.printsCta.draw}</span>
                 </div>
               </div>
             )}
@@ -1533,13 +1531,6 @@ export default function Storefront({ shelf, onShelfChange }) {
         .cta-links :global(a.cta-link:hover) {
           filter: brightness(1.2);
           border-bottom-color: var(--accent-2);
-        }
-        /* no destination yet (see chat) — reads as "coming soon", not as a
-           broken link */
-        .cta-links :global(.cta-link.pending) {
-          color: var(--ink-faint);
-          border-bottom-style: dashed;
-          cursor: default;
         }
 
         /* ---- wide: one backdrop behind header, menu and goods ----

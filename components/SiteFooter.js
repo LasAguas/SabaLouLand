@@ -53,7 +53,6 @@ export default function SiteFooter({ divider = true }) {
       </div>
 
       <div className="fine">
-        {/* TODO: /impressum doesn't exist yet — see TODO.md */}
         <Link
           href="/impressum"
           className="impressum"
@@ -62,6 +61,16 @@ export default function SiteFooter({ divider = true }) {
           data-track-category="legal"
         >
           {t.footer.impressum}
+        </Link>
+        <span className="dot" aria-hidden="true">·</span>
+        <Link
+          href="/privacy"
+          className="impressum"
+          data-track-type="other"
+          data-track-label="privacy"
+          data-track-category="legal"
+        >
+          {t.footer.privacy}
         </Link>
         <span className="dot" aria-hidden="true">·</span>
         <span>© {year} Saba Lou</span>
