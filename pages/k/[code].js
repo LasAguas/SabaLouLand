@@ -8,7 +8,10 @@
 // code out of the site's own analytics.
 //
 // What it shows is components/liner/Paper.js, driven by lib/useLinerPlayer.js
-// (playback, line sync, the track list). Two other designs were built next to
+// (playback, line sync, the track list). Besides playing the songs from the
+// phone, it can *listen* to the cassette on a deck through the microphone and
+// follow it (lib/cassette/ — the matching file is served by pages/api/k/
+// fingerprints.js under the same code check). Two other designs were built next to
 // it — Sleeve and Cassette, both still in components/liner/ — and parked; see
 // the note at the top of pages/dev/liner-notes.js for how to bring them back.
 // pages/dev/liner-notes.js shows this same page without needing a code.
@@ -19,6 +22,7 @@
 import fs from "fs";
 import path from "path";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import Paper from "../../components/liner/Paper";
 // import Cassette from "../../components/liner/Cassette";
 // import Sleeve from "../../components/liner/Sleeve";
@@ -93,7 +97,10 @@ export default function AlbumKit({ valid, albumTitle, songs }) {
 // Split out of AlbumKit so the player hook only ever runs for a valid code —
 // hooks can't sit below the early return above.
 function Kit({ albumTitle, songs }) {
-  const player = useLinerPlayer(songs);
+  // the code is only passed on so listening can ask for its reference file with it
+  const { query } = useRouter();
+  const code = typeof query.code === "string" ? query.code : null;
+  const player = useLinerPlayer(songs, { code });
 
   return (
     <>

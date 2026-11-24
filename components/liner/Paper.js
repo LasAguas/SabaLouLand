@@ -14,12 +14,20 @@
 //            playing is ringed, like the selected chip in the theme switch;
 //            the others sit back at the same 62% the unselected ones do.
 //   scroll   no scrollbar; the top and bottom of the sheet just fade out.
-//   deck     a panel of chips: prev / play / next, and a hand-drawn scrubber.
+//   deck     a panel of chips: prev / play / next, a microphone, and a
+//            hand-drawn scrubber.
+//   listen   the microphone chip makes the page follow a cassette playing on a
+//            deck instead of playing the song itself (lib/cassette/): the
+//            scrubber gives way to a line saying what it's doing, the song and
+//            its lines follow the tape, and prev / next sit out. A note above
+//            the deck says what the microphone is for the first time, and
+//            says so plainly if it's blocked.
 // ---------------------------------------------------------------------------
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { formatTime, useMenu } from "../../lib/useLinerPlayer";
 import { useTheme } from "../../lib/useTheme";
-import { BurgerIcon, ChevronIcon, CloseIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon } from "./icons";
+import { BurgerIcon, ChevronIcon, CloseIcon, MicIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon } from "./icons";
 
 const HERO = {
   dark: "/images/hero-dark.jpg",
@@ -65,6 +73,41 @@ export default function Paper({ player, albumTitle }) {
   const { theme } = useTheme();
   const { songs, song, songIndex, groups, activeIndex, activeGroupIndex, playing, currentTime, duration, progress } = player;
   const browsing = !player.autoFollow;
+  const { listen } = player;
+
+  // The note above the deck: what the microphone is for (until it's been agreed
+  // to once on this device), or why it didn't work.
+  const [asking, setAsking] = useState(false);
+  const [knows, setKnows] = useState(false);
+  const [seenProblem, setSeenProblem] = useState("");
+  useEffect(() => {
+    try {
+      setKnows(window.localStorage.getItem("sl:listen-ok") === "1");
+    } catch {}
+  }, []);
+
+  function toggleListen() {
+    if (listen.on) {
+      listen.stop();
+    } else if (asking) {
+      setAsking(false);
+    } else if (knows) {
+      setSeenProblem(""); // a failure that happens again deserves its note again
+      listen.start();
+    } else {
+      setAsking(true);
+    }
+  }
+  function agree() {
+    try {
+      window.localStorage.setItem("sl:listen-ok", "1");
+    } catch {}
+    setKnows(true);
+    setAsking(false);
+    setSeenProblem("");
+    listen.start(); // still inside the tap, which is what a phone needs to open the microphone
+  }
+  const problem = listen.problem && listen.problem !== seenProblem ? listen.problem : "";
 
   function pickTrack(i) {
     if (i !== songIndex) player.goTo(i);
@@ -184,32 +227,79 @@ export default function Paper({ player, albumTitle }) {
       </main>
 
       <footer className="deck panel">
+        {(asking || problem) && (
+          <div className="panel ask" role="dialog" aria-label="listen to my cassette">
+            {asking ? (
+              <>
+                <p>
+                  hold your phone near the tape player. this uses the microphone to work out which song is playing and
+                  where it is, so the lyrics can follow along. nothing is recorded or sent anywhere.
+                </p>
+                <div className="ask-keys">
+                  <button type="button" className="chip key" onClick={agree}>
+                    start listening
+                  </button>
+                  <button type="button" className="chip key" onClick={() => setAsking(false)}>
+                    not now
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p>{problem}</p>
+                <div className="ask-keys">
+                  <button type="button" className="chip key" onClick={() => setSeenProblem(listen.problem)}>
+                    ok
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <div className="scrubrow">
           <span className="time">{formatTime(currentTime)}</span>
-          <input
-            type="range"
-            className="scrub"
-            min={0}
-            max={duration || 0}
-            step={0.1}
-            value={Math.min(currentTime, duration || 0)}
-            onChange={(e) => player.scrubTo(Number(e.target.value))}
-            style={{ "--p": `${progress * 100}%` }}
-            aria-label="seek"
-          />
-          <span className="time">{player.error ? "no audio" : `−${formatTime(Math.max(0, duration - currentTime))}`}</span>
+          {listen.on && listen.status !== "locked" ? (
+            <span className="hear" role="status">
+              {listen.status === "starting" ? "starting the microphone…" : listen.status === "paused" ? "tape paused" : "listening for the tape…"}
+            </span>
+          ) : (
+            <input
+              type="range"
+              className="scrub"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={Math.min(currentTime, duration || 0)}
+              onChange={(e) => player.scrubTo(Number(e.target.value))}
+              style={{ "--p": `${progress * 100}%` }}
+              disabled={listen.on}
+              aria-label="seek"
+            />
+          )}
+          <span className="time">{player.error && !listen.on ? "no audio" : `−${formatTime(Math.max(0, duration - currentTime))}`}</span>
         </div>
         <div className="keys">
-          <button type="button" className="chip key" onClick={player.prev} aria-label="previous">
+          <button type="button" className="chip key" onClick={player.prev} disabled={listen.on} aria-label="previous">
             <PrevIcon width={18} height={18} />
           </button>
           <button type="button" className="chip key play" onClick={player.togglePlay} aria-label={playing ? "pause" : "play"}>
             {playing ? <PauseIcon width={18} height={18} /> : <PlayIcon width={18} height={18} />}
             <span>{playing ? "pause" : "play"}</span>
           </button>
-          <button type="button" className="chip key" onClick={player.next} disabled={!player.hasNext} aria-label="next">
+          <button type="button" className="chip key" onClick={player.next} disabled={!player.hasNext || listen.on} aria-label="next">
             <NextIcon width={18} height={18} />
           </button>
+          {listen.available && (
+            <button
+              type="button"
+              className={`chip key listen${listen.on ? " selected" : ""}`}
+              onClick={toggleListen}
+              aria-pressed={listen.on}
+              aria-label={listen.on ? "stop listening to the tape" : "listen to my cassette"}
+            >
+              <MicIcon width={18} height={18} />
+            </button>
+          )}
         </div>
       </footer>
 
@@ -535,10 +625,40 @@ export default function Paper({ player, albumTitle }) {
 
         /* ---- the deck ---- */
         .deck {
+          position: relative;
           flex: none;
           width: min(560px, 100%);
           margin: 0 auto;
           gap: 0.4rem;
+        }
+        /* the note above the deck: more solid than the other panels, like the track list, since it sits over lyrics */
+        .ask {
+          position: absolute;
+          z-index: 11;
+          left: 0;
+          right: 0;
+          bottom: calc(100% + 0.5rem);
+          padding: 0.7rem 0.8rem;
+          background: color-mix(in srgb, rgb(250, 246, 238) 95%, transparent);
+          box-shadow: 0 10px 30px rgba(7, 9, 12, 0.35);
+          color: var(--chip-ink);
+          font-size: 0.9em;
+          line-height: 1.45;
+        }
+        .ask p {
+          margin: 0 0 0.6rem;
+        }
+        .ask-keys {
+          display: flex;
+          gap: 0.35rem;
+        }
+        .hear {
+          flex: 1;
+          min-width: 0;
+          text-align: center;
+          font-size: 0.82em;
+          letter-spacing: 0.02em;
+          opacity: 0.85;
         }
         .scrubrow {
           display: flex;
@@ -565,6 +685,9 @@ export default function Paper({ player, albumTitle }) {
           appearance: none;
           -webkit-appearance: none;
           cursor: pointer;
+        }
+        .scrub:disabled {
+          cursor: default;
         }
         .scrub::-webkit-slider-runnable-track {
           height: 3px;
@@ -608,6 +731,12 @@ export default function Paper({ player, albumTitle }) {
         .key:disabled:hover {
           transform: none;
           filter: none;
+        }
+        /* The shared .chip[aria-pressed="false"] dims a chip to 62% (the language
+           switch's unselected option). Here that would make the one new key look
+           switched off, so it stays as bright as its neighbours. */
+        .key.listen[aria-pressed="false"] {
+          opacity: 1;
         }
 
         /* ---- a wide screen: notes go beside their lines, not under ---- */

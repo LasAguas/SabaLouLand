@@ -251,6 +251,51 @@ file says how to bring them back. `album.json` gained a `side` ("A"/"B") per
 song, which only Cassette reads. `components/LyricsPlayer.js` is the old plain
 player; only the sync editor's "watch it back" still uses it now.
 
+**Also done (2026-11-24):** **"listen to my cassette."** A microphone key sits
+next to prev / play / next on `/k/<code>`. Tap it (the first time it says what
+the microphone is for), put the phone near the tape player, and the page works
+out which song is playing and where in it, then runs the lyrics and liner notes
+alongside — the song on screen follows the tape from song to song, and says
+"tape paused" when the deck stops. Nothing is recorded or sent; the sound is
+analysed on the phone and thrown away, and there's no service or API involved
+(everything is in `lib/cassette/`). Pressing play while it's listening carries
+on from the phone at the tape's place. It's built on top of the existing player,
+so playing from the phone, the track list, tap-a-line and the design are
+untouched, and the `/k/<code>` link, its code check and its headers are exactly
+as they were.
+
+How it works, briefly: `node scripts/build-fingerprints.mjs` boils the 11
+masters in `public/nfc-audio/` down to `content/fingerprints/nbl.fp.gz` (~0.8
+MB, **commit it** — it's what Vercel serves, through `pages/api/k/
+fingerprints.js` under the same code check as the page). On the phone, a worker
+turns what the microphone hears into pitch/timing landmarks and looks them up
+in that file at 13 tape speeds (decks run a few percent off, which breaks the
+plain method); `lib/cassette/tracker.mjs` turns the answers into a steady
+"this song, this far in". Tested on your two real recordings (Side A, Side B,
+both on this deck): it locks onto a song about 7 s into it, stays right ~95% of
+the time a song is playing, finds the next song on the tape as it starts, and
+rides out a deck 3–5% off speed, room noise as loud as the music, pauses,
+rewinds and fast-forwards (spliced from your recordings).
+
+Things worth knowing:
+- **Re-run `node scripts/build-fingerprints.mjs` whenever the masters change**
+  (a remix, a trim, a re-master that shifts things in time), and commit the
+  new file. If a cassette was dubbed from a *different* mix than these masters,
+  that tape won't be recognised.
+- **`node scripts/cassette-probe.mjs "<recording>"`** replays any phone
+  recording of a tape through the same code the page runs and prints, second by
+  second, what it hears and what the page would show. Use it to find out why a
+  particular deck or room isn't working — record a minute with the phone where
+  a listener would hold it.
+- It needs the page on **https** (Vercel is) and a tap to start; the phone has
+  to be awake and the page in front (it keeps the screen on while listening).
+  Browsers without microphone support just don't show the key.
+- It follows the tape's order within a side (A: She → UV Catastrophe → ...), so
+  adding or reordering songs means `content/lyrics/album.json` and the masters
+  have to agree.
+- Not yet tried on a real phone — only in Chromium with your recordings played
+  into it as the microphone. See the last item below.
+
 **Still needed, in the order that blocks the least:**
 
 1. **A private Supabase bucket.** Storage → New bucket in the dashboard's
@@ -275,6 +320,20 @@ player; only the sync editor's "watch it back" still uses it now.
    (case or J-card, not the tape shell — it goes into a deck), lock the tags
    after writing. The script also has `--csv` for tag-writing services that
    want a spreadsheet.
+7. **Commit and deploy "listen to my cassette".** The new files are
+   `lib/cassette/`, `content/fingerprints/nbl.fp.gz`,
+   `pages/api/k/fingerprints.js`, `public/cassette-worklet.js`,
+   `scripts/build-fingerprints.mjs` and `scripts/cassette-probe.mjs`, plus edits
+   to `components/liner/Paper.js`, `components/liner/icons.js`,
+   `lib/useLinerPlayer.js` and `pages/k/[code].js`.
+8. **Try "listen to my cassette" on your own phone**, once it's deployed:
+   open your cassette's link, tap the microphone key, play the tape on the deck,
+   and watch it find the song (about 7 s in). iPhone Safari and an Android phone
+   if you can. Things to note if it misbehaves: how far the phone was from the
+   deck, whether the screen stayed on, and what the line under the lyrics said
+   ("listening for the tape…" for a long time means it can't hear the song —
+   try nearer, or louder). Then send a recording of that spot through
+   `scripts/cassette-probe.mjs` and we'll see what it's making of it.
 
 Not done, and deliberately left for you to decide: translating the copy on
 the invalid-code screen (currently English only), and whether lines should

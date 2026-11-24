@@ -58,6 +58,14 @@ export const ChevronIcon = ({ dir = "down", ...p }) => (
   </svg>
 );
 
+/** A microphone — the "listen to my cassette" key. */
+export const MicIcon = (p) => (
+  <svg {...stroke} {...p}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" />
+  </svg>
+);
+
 export const BurgerIcon = (p) => (
   <svg {...stroke} {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />
