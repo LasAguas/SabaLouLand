@@ -554,6 +554,11 @@ export default function Storefront({ shelf, onShelfChange }) {
                     ? p.variants?.find((v) => v.name === variant)
                     : null;
                   const activePrice = activeVariant?.price_cents ?? p.price_cents;
+                  // price_cents already includes any sale; the dashboard sends
+                  // the old price alongside, so nothing is worked out here and
+                  // the tag goes away by itself when the sale ends
+                  const fullPrice = activeVariant?.original_price_cents ?? p.original_price_cents;
+                  const reduced = !!p.discount && fullPrice > activePrice;
                   const priceVaries =
                     p.has_variants &&
                     p.price_min_cents != null &&
@@ -612,11 +617,19 @@ export default function Storefront({ shelf, onShelfChange }) {
                         )}
                         {soldOut && <span className="stamp">{s.soldOut}</span>}
                         {!soldOut && preorderOf(p, variant) && <span className="stamp pre">{s.preorderTag}</span>}
+                        {!soldOut && reduced && <span className="stamp pre sale">−{p.discount.percent}%</span>}
                       </span>
 
                       <h3>{p.name}</h3>
                       {p.description && <p className="desc">{p.description}</p>}
                       <p className="price">
+                        {reduced && (
+                          <>
+                            <span className="sr-only">{s.saleWas} </span>
+                            <s>{euro(fullPrice)}</s>{" "}
+                            <span className="sr-only">{s.saleNow} </span>
+                          </>
+                        )}
                         <strong>{euro(activePrice)}</strong>
                         {!zones.length && shippingMode !== "packed" && p.shipping_cents > 0 && (
                           <small>
@@ -1151,6 +1164,14 @@ export default function Storefront({ shelf, onShelfChange }) {
           transform-origin: top left;
         }
 
+        /* sale tag: the same corner label in the blue of the site's chips,
+           a step down if a pre-order tag already has the corner */
+        .stamp.sale {
+          background: var(--chip);
+          color: var(--chip-ink);
+        }
+        .stamp.pre + .stamp.sale { top: 2.6rem; }
+
         .card h3 {
           margin: 0.6rem 0 0.1rem;
           font-family: var(--font-title);
@@ -1170,6 +1191,8 @@ export default function Storefront({ shelf, onShelfChange }) {
           font-size: 0.9em;
         }
         .price small { opacity: 0.72; }
+        /* on sale: the old price, struck through beside the new one */
+        .price s { opacity: 0.65; }
         /* sits snug under the price line, pulled up to close the gap .price
            leaves for cards that don't need this note */
         .varies {
